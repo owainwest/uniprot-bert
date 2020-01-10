@@ -133,7 +133,7 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     assert len(segment_ids) == max_seq_length
 
     masked_lm_positions = list(instance.masked_lm_positions)
-    masked_lm_hydrophobocities = list(instance.masked_lm_hydrophobicities)
+    masked_lm_hydrophobicities = list(instance.masked_lm_hydrophobicities)
 
     #! TODO: this sets the LM mask values to be the original pre-masking. change this so that it uses
     # the hydrophobicity, and have the masked LM predict hydrophobicity instead
