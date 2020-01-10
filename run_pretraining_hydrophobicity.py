@@ -222,7 +222,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
                                          [-1, hydrophobicity_log_probs.shape[-1]])
         hydrophobicity_predictions = tf.argmax(
             hydrophobicity_log_probs, axis=-1, output_type=tf.int32)
-        hydrophobicity_example_loss = tf.reshapehydrophobicity_example_loss, [-1])
+        hydrophobicity_example_loss = tf.reshape(hydrophobicity_example_loss, [-1])
         masked_lm_hydrophobicities = tf.reshape(masked_lm_hydrophobicities, [-1])
         masked_lm_hydrophobicity_weights = tf.reshape(masked_lm_hydrophobicity_weights, [-1])
         hydrophobicity_accuracy = tf.metrics.accuracy(
