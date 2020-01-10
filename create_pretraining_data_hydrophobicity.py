@@ -301,6 +301,8 @@ def create_instances_from_document(
     tokens.append("[SEP]")
     segment_ids.append(0)
 
+
+    # log = (i % 1000 == 0)
     (tokens, masked_lm_positions,
       masked_lm_labels, masked_lm_hydrophobicities) = create_masked_lm_predictions(
           tokens, masked_lm_prob, max_predictions_per_seq, vocab_words, rng, k, gapfactor)
@@ -360,7 +362,7 @@ def get_hydrophobicity(peptide):
     return sum(res)
 
 def create_masked_lm_predictions(tokens, masked_lm_prob,
-                                 max_predictions_per_seq, vocab_words, rng, k, gapfactor):
+                                 max_predictions_per_seq, vocab_words, rng, k, gapfactor, log=False):
   """Creates the predictions for the masked LM objective."""
 
   cand_indexes = []
@@ -452,12 +454,13 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
     masked_lm_labels.append(p.label)
     masked_lm_hydrophobicities.append(p.hydrophobicity)
   
-  print("--------MAKED_LM_PREDICTION_RESULT-------")
-  print("input sequence", tokens)
-  print("output tokens", output_tokens)
-  print("masked_lm_positions", masked_lm_positions)
-  print("masked_lm_labels", masked_lm_labels)
-  print("masked_lm_hydrophobicities", masked_lm_hydrophobicities)
+  # if log:
+  #   print("--------MAKED_LM_PREDICTION_RESULT-------")
+  #   print("input sequence", tokens)
+  #   print("output tokens", output_tokens)
+  #   print("masked_lm_positions", masked_lm_positions)
+  #   print("masked_lm_labels", masked_lm_labels)
+  #   print("masked_lm_hydrophobicities", masked_lm_hydrophobicities)
   return (output_tokens, masked_lm_positions, masked_lm_labels, masked_lm_hydrophobicities)
 
 
