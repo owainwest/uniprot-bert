@@ -139,11 +139,14 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     # the hydrophobicity, and have the masked LM predict hydrophobicity instead
     masked_lm_ids = tokenizer.convert_tokens_to_ids(instance.masked_lm_labels)
     masked_lm_weights = [1.0] * len(masked_lm_ids)
+    masked_lm_hydrophobicity_weights = [1.0] * len(masked_lm_ids)
+
 
     while len(masked_lm_positions) < max_predictions_per_seq:
       masked_lm_positions.append(0)
       masked_lm_ids.append(0)
       masked_lm_weights.append(0.0)
+      masked_lm_hydrophobicity_weights.append(0.0)
 
     # next_sentence_label = 1 if instance.is_random_next else 0
 
@@ -155,6 +158,7 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     features["masked_lm_ids"] = create_int_feature(masked_lm_ids)
     features["masked_lm_weights"] = create_float_feature(masked_lm_weights)
     features["masked_lm_hydrophobicities"] = create_int_feature(masked_lm_hydrophobicities)
+    features["masked_lm_hydrophobicity_weights"] = create_float_feature(masked_lm_hydrophobicity_weights)
     # features["next_sentence_labels"] = create_int_feature([next_sentence_label])
 
     tf_example = tf.train.Example(features=tf.train.Features(feature=features))
