@@ -352,7 +352,7 @@ def get_hydrophobicity(peptide):
     }
     DEFAULT_GUESS = 22
     res = []
-    for amino_acid in pepdite:
+    for amino_acid in peptide:
         if amino_acid in acid_to_hydro:
             res.append(acid_to_hydro[amino_acid])
         else:
