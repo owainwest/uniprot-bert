@@ -452,9 +452,12 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
     masked_lm_labels.append(p.label)
     masked_lm_hydrophobicities.append(p.hydrophobicity)
   
+  print("--------MAKED_LM_PREDICTION_RESULT-------")
+  print("input sequence", tokens)
   print("output tokens", output_tokens)
   print("masked_lm_positions", masked_lm_positions)
   print("masked_lm_labels", masked_lm_labels)
+  print("masked_lm_hydrophobicities", masked_lm_hydrophobicities)
   return (output_tokens, masked_lm_positions, masked_lm_labels, masked_lm_hydrophobicities)
 
 
