@@ -79,13 +79,14 @@ flags.DEFINE_float(
 class TrainingInstance(object):
   """A single training instance (sentence pair)."""
 
-  def __init__(self, tokens, segment_ids, masked_lm_positions, masked_lm_labels):
+  def __init__(self, tokens, segment_ids, masked_lm_positions, masked_lm_labels, masked_lm_hydrophobicities):
               #  , is_random_next):
     self.tokens = tokens
     self.segment_ids = segment_ids
     # self.is_random_next = is_random_next
     self.masked_lm_positions = masked_lm_positions
     self.masked_lm_labels = masked_lm_labels
+    self.masked_lm_hydrophobicities = masked_lm_hydrophobicities
 
   def __str__(self):
     s = ""
@@ -97,6 +98,8 @@ class TrainingInstance(object):
         [str(x) for x in self.masked_lm_positions]))
     s += "masked_lm_labels: %s\n" % (" ".join(
         [tokenization.printable_text(x) for x in self.masked_lm_labels]))
+    s += "masked_lm_hydrophobicities: %s\n" % (" ".join(
+        [str(x) for x in self.masked_lm_hydrophobicities]))
     s += "\n"
     return s
 
@@ -133,6 +136,10 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     #! TODO: this sets the LM mask values to be the original pre-masking. change this so that it uses
     # the hydrophobicity, and have the masked LM predict hydrophobicity instead
     masked_lm_ids = tokenizer.convert_tokens_to_ids(instance.masked_lm_labels)
+    print("this sets masked LM ids to")
+    print(masked_lm_ids)
+    print("instance.masked_lm_labels was")
+    print(instance.masked_lm_labels)
     masked_lm_weights = [1.0] * len(masked_lm_ids)
 
     while len(masked_lm_positions) < max_predictions_per_seq:
@@ -149,6 +156,7 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     features["masked_lm_positions"] = create_int_feature(masked_lm_positions)
     features["masked_lm_ids"] = create_int_feature(masked_lm_ids)
     features["masked_lm_weights"] = create_float_feature(masked_lm_weights)
+    features["masked_lm_hydrophobicities"] = create_int_feature()
     # features["next_sentence_labels"] = create_int_feature([next_sentence_label])
 
     tf_example = tf.train.Example(features=tf.train.Features(feature=features))
@@ -294,7 +302,7 @@ def create_instances_from_document(
     segment_ids.append(0)
 
     (tokens, masked_lm_positions,
-      masked_lm_labels, masked_hydrophobicity) = create_masked_lm_predictions(
+      masked_lm_labels, masked_lm_hydrophobicity) = create_masked_lm_predictions(
           tokens, masked_lm_prob, max_predictions_per_seq, vocab_words, rng, k, gapfactor)
 
 
@@ -303,7 +311,8 @@ def create_instances_from_document(
         segment_ids=segment_ids,
         # is_random_next=is_random_next,
         masked_lm_positions=masked_lm_positions,
-        masked_lm_labels=masked_lm_labels)
+        masked_lm_labels=masked_lm_labels,
+        masked_lm_hydrophobicity=masked_lm_hydrophobicity)
     instances.append(instance)
 
     if lost > 10:
