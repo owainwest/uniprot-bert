@@ -302,7 +302,7 @@ def create_instances_from_document(
     segment_ids.append(0)
 
     (tokens, masked_lm_positions,
-      masked_lm_labels, masked_lm_hydrophobicity) = create_masked_lm_predictions(
+      masked_lm_labels, masked_lm_hydrophobicities) = create_masked_lm_predictions(
           tokens, masked_lm_prob, max_predictions_per_seq, vocab_words, rng, k, gapfactor)
 
 
@@ -312,7 +312,7 @@ def create_instances_from_document(
         # is_random_next=is_random_next,
         masked_lm_positions=masked_lm_positions,
         masked_lm_labels=masked_lm_labels,
-        masked_lm_hydrophobicity=masked_lm_hydrophobicity)
+        masked_lm_hydrophobicities=masked_lm_hydrophobicities)
     instances.append(instance)
 
     if lost > 10:
@@ -446,16 +446,16 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
 
   masked_lm_positions = []
   masked_lm_labels = []
-  masked_lm_hydrophobicity = []
+  masked_lm_hydrophobicities = []
   for p in masked_lms:
     masked_lm_positions.append(p.index)
     masked_lm_labels.append(p.label)
-    masked_lm_hydrophobicity.append(p.hydrophobicity)
+    masked_lm_hydrophobicities.append(p.hydrophobicity)
   
   print("output tokens", output_tokens)
   print("masked_lm_positions", masked_lm_positions)
   print("masked_lm_labels", masked_lm_labels)
-  return (output_tokens, masked_lm_positions, masked_lm_labels, masked_lm_hydrophobicity)
+  return (output_tokens, masked_lm_positions, masked_lm_labels, masked_lm_hydrophobicities)
 
 
 def truncate_seq_pair(tokens_a, tokens_b, max_num_tokens, rng):
