@@ -463,7 +463,7 @@ def create_local_predictions(tokens, masked_lm_prob,
 
 
 def get_hydrophobicity(peptide, aa_features):
-    DEFAULT_GUESS = statistics.median(feats["hydrophobicity"] for _, feats in aa_features.iteritems())
+    DEFAULT_GUESS = statistics.median(feats["hydrophobicity"] for feats in aa_features.values())
     res = []
     for amino_acid in peptide:
         if amino_acid in aa_features:
@@ -473,7 +473,7 @@ def get_hydrophobicity(peptide, aa_features):
     return int(sum(res))
 
 def get_charge(peptide, aa_features):
-    DEFAULT_GUESS = statistics.median(feats["charge"] for _, feats in aa_features.iteritems())
+    DEFAULT_GUESS = statistics.median(feats["charge"] for feats in aa_features.values())
     res = []
     for amino_acid in peptide:
         if amino_acid in aa_features:
@@ -483,7 +483,7 @@ def get_charge(peptide, aa_features):
     return int(sum(res))
 
 def get_pks(peptide, aa_features):
-    DEFAULT_GUESS = statistics.median(sum(feats["pks"]) for _, feats in aa_features.iteritems())
+    DEFAULT_GUESS = statistics.median(sum(feats["pks"]) for feats in aa_features.values())
     res = []
     for amino_acid in peptide:
         if amino_acid in aa_features:
@@ -493,7 +493,7 @@ def get_pks(peptide, aa_features):
     return int(sum(res))
 
 def get_solubility(peptide, aa_features):
-    DEFAULT_GUESS = statistics.median(feats["solubility"] for _, feats in aa_features.iteritems())
+    DEFAULT_GUESS = statistics.median(feats["solubility"] for feats in aa_features.values())
     res = []
     for amino_acid in peptide:
         if amino_acid in aa_features:
