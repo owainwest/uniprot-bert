@@ -80,10 +80,8 @@ class TrainingInstance(object):
   """A single training instance (sentence pair)."""
 
   def __init__(self, tokens, segment_ids, masked_lm_positions, masked_lm_labels, masked_lm_hydrophobicities):
-              #  , is_random_next):
     self.tokens = tokens
     self.segment_ids = segment_ids
-    # self.is_random_next = is_random_next
     self.masked_lm_positions = masked_lm_positions
     self.masked_lm_labels = masked_lm_labels
     self.masked_lm_hydrophobicities = masked_lm_hydrophobicities
@@ -93,7 +91,6 @@ class TrainingInstance(object):
     s += "tokens: %s\n" % (" ".join(
         [tokenization.printable_text(x) for x in self.tokens]))
     s += "segment_ids: %s\n" % (" ".join([str(x) for x in self.segment_ids]))
-    # s += "is_random_next: %s\n" % self.is_random_next
     s += "masked_lm_positions: %s\n" % (" ".join(
         [str(x) for x in self.masked_lm_positions]))
     s += "masked_lm_labels: %s\n" % (" ".join(
@@ -134,13 +131,9 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
 
     masked_lm_positions = list(instance.masked_lm_positions)
     masked_lm_hydrophobicities = list(instance.masked_lm_hydrophobicities)
-
-    #! TODO: this sets the LM mask values to be the original pre-masking. change this so that it uses
-    # the hydrophobicity, and have the masked LM predict hydrophobicity instead
     masked_lm_ids = tokenizer.convert_tokens_to_ids(instance.masked_lm_labels)
     masked_lm_weights = [1.0] * len(masked_lm_ids)
     masked_lm_hydrophobicity_weights = [1.0] * len(masked_lm_ids)
-
 
     while len(masked_lm_positions) < max_predictions_per_seq:
       masked_lm_positions.append(0)
@@ -243,7 +236,7 @@ def create_training_instances(input_files, tokenizer, max_seq_length,
   rng.shuffle(instances)
   return instances
 
-# !TODO: edit "next sentence prediction" to predict from same peptide
+
 # k is size of each kmer
 # gapfactor is: if you want a unsupported central gap of length 2n + 1, gapfactor is n
 # eg - 3mers and 5-masking, gap factor is 0 (since unsupported center is size 1)
@@ -274,18 +267,14 @@ def create_instances_from_document(
   # segments "A" and "B" based on the actual "sentences" provided by the user
   # input.
   instances = []
-  # current_chunk = []
-  # current_length = 0
   i = 0
   while i < len(document):
-    # segment = document[i]
     if len(document[i]) == 0:
       print('> Doc[i] was empty, i = ', i)
       continue
 
     lost = len(document[i]) - max_num_tokens
     tokens_a = document[i][:max_num_tokens]
-    # tokens_b = []
 
     if (len(tokens_a) == 0):
       print('index', i)
@@ -304,17 +293,14 @@ def create_instances_from_document(
     tokens.append("[SEP]")
     segment_ids.append(0)
 
-
-    # log = (i % 1000 == 0)
     (tokens, masked_lm_positions,
       masked_lm_labels, masked_lm_hydrophobicities) = create_masked_lm_predictions(
           tokens, masked_lm_prob, max_predictions_per_seq, vocab_words, rng, k, gapfactor)
 
-
+    # Add feature to TrainingInstance for either sequence or token level features
     instance = TrainingInstance(
         tokens=tokens,
         segment_ids=segment_ids,
-        # is_random_next=is_random_next,
         masked_lm_positions=masked_lm_positions,
         masked_lm_labels=masked_lm_labels,
         masked_lm_hydrophobicities=masked_lm_hydrophobicities)
@@ -329,8 +315,7 @@ def create_instances_from_document(
   return instances
 
 
-MaskedLmInstance = collections.namedtuple("MaskedLmInstance",
-                                          ["index", "label", "hydrophobicity"])
+MaskedLmInstance = collections.namedtuple("MaskedLmInstance", ["index", "label", "hydrophobicity"])
 
 def get_hydrophobicity(peptide):
     acid_to_hydro = {
@@ -364,6 +349,7 @@ def get_hydrophobicity(peptide):
             res.append(DEFAULT_GUESS)
     return sum(res)
 
+# Add in here to add a local feature
 def create_masked_lm_predictions(tokens, masked_lm_prob,
                                  max_predictions_per_seq, vocab_words, rng, k, gapfactor, log=False):
   """Creates the predictions for the masked LM objective."""
@@ -372,17 +358,8 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
   for (i, token) in enumerate(tokens):
     if token == "[CLS]" or token == "[SEP]":
       continue
-    # Whole Word Masking means that if we mask all of the wordpieces
-    # corresponding to an original word. When a word has been split into
-    # WordPieces, the first token does not have any marker and any subsequence
-    # tokens are prefixed with ##. So whenever we see the ## token, we
-    # append it to the previous set of word indexes.
-    #
-    # Note that Whole Word Masking does *not* change the training code
-    # at all -- we still predict each WordPiece independently, softmaxed
-    # over the entire vocabulary.
-    if (FLAGS.do_whole_word_mask and len(cand_indexes) >= 1 and
-        token.startswith("##")):
+
+    if (FLAGS.do_whole_word_mask and len(cand_indexes) >= 1 and token.startswith("##")):
       cand_indexes[-1].append(i)
     else:
       cand_indexes.append([i])
@@ -398,7 +375,7 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
   covered_indexes = set()
   for index_set in cand_indexes:
     #! edited so that cannot predict excess, taking into account k-1 window on each side
-    if len(masked_lms ) + 2*k - 1 + 2*gapfactor > num_to_predict:
+    if len(masked_lms) + 1 > num_to_predict: #2*k - 1 + 2*gapfactor > num_to_predict:
       break
     # If adding a whole-word mask would exceed the maximum number of
     # predictions, then just skip this candidate.
@@ -444,7 +421,6 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
 
       for i in range(low_index, high_index + 1):
         masked_lms.append(MaskedLmInstance(index=i, label=tokens[i], hydrophobicity=hydrophobicity))
-      # masked_lms.append(MaskedLmInstance(index=index, label=tokens[index]))
    
   assert len(masked_lms) <= num_to_predict
   masked_lms = sorted(masked_lms, key=lambda x: x.index)
@@ -457,13 +433,6 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
     masked_lm_labels.append(p.label)
     masked_lm_hydrophobicities.append(p.hydrophobicity)
   
-  # if log:
-  #   print("--------MAKED_LM_PREDICTION_RESULT-------")
-  #   print("input sequence", tokens)
-  #   print("output tokens", output_tokens)
-  #   print("masked_lm_positions", masked_lm_positions)
-  #   print("masked_lm_labels", masked_lm_labels)
-  #   print("masked_lm_hydrophobicities", masked_lm_hydrophobicities)
   return (output_tokens, masked_lm_positions, masked_lm_labels, masked_lm_hydrophobicities)
 
 
