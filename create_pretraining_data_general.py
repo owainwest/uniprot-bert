@@ -487,7 +487,7 @@ def get_pks(peptide, aa_features):
     res = []
     for amino_acid in peptide:
         if amino_acid in aa_features:
-            res.append(sum(aa_featues[amino_acid]["pks"]))
+            res.append(sum(aa_features[amino_acid]["pks"]))
         else:
             res.append(DEFAULT_GUESS)
     return int(sum(res))
