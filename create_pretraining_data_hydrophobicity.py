@@ -146,6 +146,7 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
       masked_lm_positions.append(0)
       masked_lm_ids.append(0)
       masked_lm_weights.append(0.0)
+      masked_lm_hydrophobicities.append(0)
       masked_lm_hydrophobicity_weights.append(0.0)
 
     # next_sentence_label = 1 if instance.is_random_next else 0
