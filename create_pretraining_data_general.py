@@ -77,25 +77,24 @@ flags.DEFINE_float(
     "Probability of creating sequences which are shorter than the maximum length.")
 
 flags.DEFINE_bool(
-    "do_hydro": False,
+    "do_hydro", False,
     "Whether or not to use local hydrophobicity predictions in training.")
 
 flags.DEFINE_bool(
-    "do_charge": False,
+    "do_charge", False,
     "Whether or not to use local charge predictions in training.")
 
 flags.DEFINE_bool(
-    "do_pks": False,
-    "Whether or not to use local predictions of pKa NH2, pKa COOH, Pk(R) in training.")
+    "do_pks", False,
+    "Whether or not to use local predictions of pKa NH2, pKa COOH in training.")
 
 flags.DEFINE_bool(
-    "do_solubility": False,
+    "do_solubility", False,
     "Whether or not to use local predictions of solubility in training.")
 
 
 class TrainingInstance(object):
   """A single training instance (sentence pair)."""
-
   def __init__(self, tokens, segment_ids, masked_lm_positions, masked_lm_labels, 
     hydrophobicities=None, charges=None, pks=None, solubilities=None):
     self.tokens = tokens
@@ -177,7 +176,7 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     features["masked_lm_ids"] = create_int_feature(masked_lm_ids)
     features["masked_lm_weights"] = create_float_feature(masked_lm_weights)
 
-    if flags.do_hydro:
+    if FLAGS.do_hydro:
         hydrophobicities = list(instance.hydrophobicities)
         hydrophobicity_weights = [1.0] * len(masked_lm_ids)
         while len(hydrophobicities) < max_predictions_per_seq:
@@ -195,13 +194,13 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
         features["charges"] = create_int_feature(charges)
         features["charge_weights"] = create_float_feature(charge_weights)
 
-    if FLAGS.do_pks:
+    if FLAGS.do_pkss:
         pks = list(instance.pks)
         pk_weights = [1.0] * len(masked_lm_ids)
         while len(pks) < max_predictions_per_seq:
             pks.append(0)
             pk_weights.append(0.0)
-        features["pks"] = create_float_feature(pks)
+        features["pks"] = create_int_feature(pks)
         features["pk_weights"] = create_float_feature(pk_weights)
 
     if FLAGS.do_solubility:
@@ -210,7 +209,7 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
         while len(solubilities) < max_predictions_per_seq:
             solubilities.append(0)
             solubility_weights.append(0.0)
-        features["solubilities"] = create_float_feature(solubilities)
+        features["solubilities"] = create_int_feature(solubilities)
         features["solubility_weights"] = create_float_feature(solubility_weights)
 
 
@@ -377,7 +376,8 @@ def create_instances_from_document(
   return instances
 
 
-MaskedLmInstance = collections.namedtuple("MaskedLmInstance", ["index", "label", "hydrophobicity"])
+MaskedLmInstance = collections.namedtuple("MaskedLmInstance", 
+  ["index", "label", "hydrophobicity", "charge", "pks", "solubility"])
 
 
 def get_hydrophobicity(peptide):
@@ -467,14 +467,14 @@ def get_pks(peptide):
         'y': [9.11,2.2],
         'v': [9.72,2.29]        
     }
-    DEFAULT_GUESS = statistics.median(sum(acid_to_pks.values()))
+    DEFAULT_GUESS = statistics.median(sum(v) for v in acid_to_pks.values())
     res = []
     for amino_acid in peptide:
         if amino_acid in acid_to_pks:
             res.append(sum(acid_to_pks[amino_acid]))
         else:
             res.append(DEFAULT_GUESS)
-    return sum(res)
+    return int(sum(res))
 
 def get_solubility(peptide):
     acid_to_solubility = {
@@ -506,7 +506,7 @@ def get_solubility(peptide):
             res.append(acid_to_solubility[amino_acid])
         else:
             res.append(DEFAULT_GUESS)
-    return sum(res)
+    return int(sum(res))
 
 # Add in here to add a local feature
 def create_masked_lm_predictions(tokens, masked_lm_prob,
@@ -551,10 +551,10 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
       masked_token = None
       original_token = tokens[index]
 
-      hydrophobicity = get_hydrophobicity(original_token) if FLAGS.do_hydro else None
-      charge = get_charge(original_token) if FLAGS.do_charge else None
-      pks = get_pks(original_token) if FLAGS.do_pks else None
-      solubility = get_solubility(original_token) if FLAGS.do_solubility else None
+      hydrophobicity = get_hydrophobicity(original_token) if FLAGS.do_hydro else 0
+      charge = get_charge(original_token) if FLAGS.do_charge else 0
+      pks = get_pks(original_token) if FLAGS.do_pkss else 0
+      solubility = get_solubility(original_token) if FLAGS.do_solubility else 0
 
       if rng.random() < 0.8:         # 80% of the time, replace with [MASK]
         masked_token = "[MASK]"

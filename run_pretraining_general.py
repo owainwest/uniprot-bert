@@ -118,7 +118,7 @@ flags.DEFINE_bool(
 
 flags.DEFINE_bool(
     "do_pks": False,
-    "Whether or not to use local predictions of pKa NH2, pKa COOH, Pk(R) in training. Must be the same as was used when creating pretraining data.")
+    "Whether or not to use local predictions of pKa NH2, pKa COOH in training. Must be the same as was used when creating pretraining data.")
 
 flags.DEFINE_bool(
     "do_solubility": False,
@@ -152,11 +152,11 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
 
     if FLAGS.do_charge:
         charges = features["charges"]
-        charge_weights = features["charges_weights"]
+        charge_weights = features["charge_weights"]
 
     if FLAGS.do_pks:
-        pks = features["pks"]
-        pks_weights = features["pks_weights"]
+        pk = features["pk"]
+        pk_weights = features["pk_weights"]
 
     if FLAGS.do_solubility:
         solubilities = features["solubilities"]
@@ -175,22 +175,39 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
         token_type_ids=segment_ids,
         use_one_hot_embeddings=use_one_hot_embeddings)
 
-    (masked_lm_loss,
-     masked_lm_example_loss, masked_lm_log_probs) = get_masked_lm_output(
+    (masked_lm_loss, masked_lm_example_loss, masked_lm_log_probs) = get_masked_lm_output(
          bert_config, model.get_sequence_output(), model.get_embedding_table(),
          masked_lm_positions, masked_lm_ids, masked_lm_weights)
 
-    (hydrophobicity_loss, 
-     hydrophobicity_example_loss, hydrophobicity_log_probs) = get_hydrophobicity_output(
-         bert_config, model.get_sequence_output(), model.get_embedding_table(),
-         masked_lm_positions, hydrophobicities, hydrophobicity_weights, k
-     )
+    if FLAGS.do_hydro:
+      (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = get_hydrophobicity_output(
+          bert_config, model.get_sequence_output(), model.get_embedding_table(),
+          masked_lm_positions, hydrophobicities, hydrophobicity_weights, k)
+    else:
+      (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = (0, 0, None)
 
-    # (next_sentence_loss, next_sentence_example_loss,
-    #  next_sentence_log_probs) = get_next_sentence_output(
-    #      bert_config, model.get_pooled_output(), next_sentence_labels)
+    if FLAGS.do_charge:
+      (charge_loss, charge_example_loss, charge_log_probs) = get_charge_output(
+          bert_config, model.get_sequence_output(), model.get_embedding_table(),
+          masked_lm_positions, charges, charge_weights, k)
+    else:
+      (charge_loss, charge_example_loss, charge_log_probs) = (0, 0, None)
 
-    total_loss = masked_lm_loss + hydrophobicity_loss # + next_sentence_loss
+    if FLAGS.do_pks:
+      (pk_loss, pk_example_loss, pk_log_probs) = get_pk_output(
+          bert_config, model.get_sequence_output(), model.get_embedding_table(),
+          masked_lm_positions, pks, pk_weights, k)
+    else:
+      (pk_loss, pk_example_loss, pk_log_probs) = (0, 0, None)
+
+    if FLAGS.do_solubility:
+      (solubility_loss, solubility_example_loss, solubility_log_probs) = get_solubility_output(
+          bert_config, model.get_sequence_output(), model.get_embedding_table(),
+          masked_lm_positions, solubilities, solubility_weights, k)
+    else:
+      (solubility_loss, solubility_example_loss, solubility_log_probs) = (0, 0, None)
+
+    total_loss = masked_lm_loss + hydrophobicity_loss + charge_loss + pk_loss + solubility_loss
 
     tvars = tf.trainable_variables()
 
@@ -230,9 +247,11 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
     elif mode == tf.estimator.ModeKeys.EVAL:
 
       #!TODO add correct arguments here to account for hydrophobicity training
-      def metric_fn(masked_lm_example_loss, masked_lm_log_probs, masked_lm_ids,
-                    masked_lm_weights, hydrophobicity_example_loss, hydrophobicity_log_probs,
-                    hydrophobicities, hydrophobicity_weights): #, next_sentence_example_loss,
+      def metric_fn(masked_lm_example_loss, masked_lm_log_probs, masked_lm_ids, masked_lm_weights, 
+                    hydrophobicity_example_loss, hydrophobicity_log_probs, hydrophobicities, hydrophobicity_weights,
+                    charge_example_loss, charge_log_probs, charges, charge_weights,
+                    pk_example_loss, pk_log_probs, pks, pk_weights,
+                    solubility_example_loss, solubility_log_probs, solubilities, solubility_weights): #, next_sentence_example_loss,
                     #next_sentence_log_probs, next_sentence_labels):
         """Computes the loss and accuracy of the model."""
         masked_lm_log_probs = tf.reshape(masked_lm_log_probs,
@@ -249,46 +268,97 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
         masked_lm_mean_loss = tf.metrics.mean(
             values=masked_lm_example_loss, weights=masked_lm_weights)
 
+        if FLAGS.do_hydro:
+          hydrophobicity_log_probs = tf.reshape(hydrophobicity_log_probs,
+                                          [-1, hydrophobicity_log_probs.shape[-1]])
+          hydrophobicity_predictions = tf.argmax(
+              hydrophobicity_log_probs, axis=-1, output_type=tf.int32)
+          hydrophobicity_example_loss = tf.reshape(hydrophobicity_example_loss, [-1])
+          hydrophobicities = tf.reshape(hydrophobicities, [-1])
+          hydrophobicity_weights = tf.reshape(hydrophobicity_weights, [-1])
+          hydrophobicity_accuracy = tf.metrics.mean_squred_error(
+              labels=hydrophobicities,
+              predictions=hydrophobicity_predictions,
+              weights=hydrophobicity_weights)
+          hydrophobicity_mean_loss = tf.metrics.mean(
+              values=hydrophobicity_example_loss, weights=hydrophobicity_weights)
+        else:
+          hydrophobicity_accuracy = 0
+          hydrophobicity_mean_loss = 0
 
-        hydrophobicity_log_probs = tf.reshape(hydrophobicity_log_probs,
-                                         [-1, hydrophobicity_log_probs.shape[-1]])
-        hydrophobicity_predictions = tf.argmax(
-            hydrophobicity_log_probs, axis=-1, output_type=tf.int32)
-        hydrophobicity_example_loss = tf.reshape(hydrophobicity_example_loss, [-1])
-        hydrophobicities = tf.reshape(hydrophobicities, [-1])
-        hydrophobicity_weights = tf.reshape(hydrophobicity_weights, [-1])
-        hydrophobicity_accuracy = tf.metrics.accuracy(
-            labels=masked_lm_ids,
-            predictions=hydrophobicity_predictions,
-            weights=hydrophobicity_weights)
-        hydrophobicity_mean_loss = tf.metrics.mean(
-            values=hydrophobicity_example_loss, weights=hydrophobicity_weights)
+        if FLAGS.do_charge:
+          charge_log_probs = tf.reshape(charge_log_probs,
+                                          [-1, charge_log_probs.shape[-1]])
+          charge_predictions = tf.argmax(
+              charge_log_probs, axis=-1, output_type=tf.int32)
+          charge_example_loss = tf.reshape(charge_example_loss, [-1])
+          charges = tf.reshape(charges, [-1])
+          charge_weights = tf.reshape(charge_weights, [-1])
+          charge_accuracy = tf.metrics.accuracy(
+              labels=charges,
+              predictions=charge_predictions,
+              weights=charge_weights)
+          charge_mean_loss = tf.metrics.mean(
+              values=charge_example_loss, weights=charge_weights)
+        else:
+          charge_accuracy = 0
+          charge_mean_loss = 0
 
-        # next_sentence_log_probs = tf.reshape(
-        #     next_sentence_log_probs, [-1, next_sentence_log_probs.shape[-1]])
-        # next_sentence_predictions = tf.argmax(
-        #     next_sentence_log_probs, axis=-1, output_type=tf.int32)
-        # next_sentence_labels = tf.reshape(next_sentence_labels, [-1])
-        # next_sentence_accuracy = tf.metrics.accuracy(
-        #     labels=next_sentence_labels, predictions=next_sentence_predictions)
-        # next_sentence_mean_loss = tf.metrics.mean(
-        #     values=next_sentence_example_loss)
+        if FLAGS.do_pks:
+          pk_log_probs = tf.reshape(pk_log_probs,
+                                          [-1, pk_log_probs.shape[-1]])
+          pk_predictions = tf.argmax(
+              pk_log_probs, axis=-1, output_type=tf.int32)
+          pk_example_loss = tf.reshape(pk_example_loss, [-1])
+          pks = tf.reshape(pks, [-1])
+          pk_weights = tf.reshape(pk_weights, [-1])
+          pk_accuracy = tf.metrics.mean_squred_error(
+              labels=pks,
+              predictions=pk_predictions,
+              weights=pk_weights)
+          pk_mean_loss = tf.metrics.mean(
+              values=pk_example_loss, weights=pk_weights)
+        else:
+          pk_accuracy = 0
+          pk_mean_loss = 0
+
+        if FLAGS.do_solubility:
+          solubility_log_probs = tf.reshape(solubility_log_probs,
+                                          [-1, solubility_log_probs.shape[-1]])
+          solubility_predictions = tf.argmax(
+              solubility_log_probs, axis=-1, output_type=tf.int32)
+          solubility_example_loss = tf.reshape(solubility_example_loss, [-1])
+          solubilities = tf.reshape(solubilities, [-1])
+          solubility_weights = tf.reshape(solubility_weights, [-1])
+          solubility_accuracy = tf.metrics.mean_squred_error(
+              labels=solubilities,
+              predictions=solubility_predictions,
+              weights=solubility_weights)
+          solubility_mean_loss = tf.metrics.mean(
+              values=solubility_example_loss, weights=solubility_weights)
+        else:
+          solubility_accuracy = 0
+          solubility_mean_loss = 0
 
         return {
             "masked_lm_accuracy": masked_lm_accuracy,
             "masked_lm_loss": masked_lm_mean_loss,
             "hydrophobicity_accuracy": hydrophobicity_accuracy,
             "hydrophobicity_loss": hydrophobicity_mean_loss,
-            # "next_sentence_accuracy": next_sentence_accuracy,
-            # "next_sentence_loss": next_sentence_mean_loss,
+            "charge_accuracy": charge_accuracy,
+            "charge_loss": charge_mean_loss,
+            "pk_accuracy": pk_accuracy,
+            "pk_loss": pk_mean_loss,
+            "solubility_accuracy": solubility_accuracy,
+            "solubility_loss": solubility_mean_loss
         }
 
       eval_metrics = (metric_fn, [
-          masked_lm_example_loss, masked_lm_log_probs, masked_lm_ids,
-          masked_lm_weights, hydrophobicity_example_loss, hydrophobicity_log_probs,
-          hydrophobicities, hydrophobicity_weights]) #, next_sentence_example_loss,
-          # next_sentence_log_probs, next_sentence_labels
-      # ])
+          masked_lm_example_loss, masked_lm_log_probs, masked_lm_ids, masked_lm_weights, 
+          hydrophobicity_example_loss, hydrophobicity_log_probs, hydrophobicities, hydrophobicity_weights,
+          charge_example_loss, charge_log_probs, charges, charge_weights,
+          pk_example_loss, pk_log_probs, pks, pk_weights,
+          solubility_example_loss, solubility_log_probs, solubilities, solubility_weights]) 
       output_spec = tf.contrib.tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,
@@ -333,8 +403,7 @@ def get_masked_lm_output(bert_config, input_tensor, output_weights, positions,
     label_ids = tf.reshape(label_ids, [-1])
     label_weights = tf.reshape(label_weights, [-1])
 
-    one_hot_labels = tf.one_hot(
-        label_ids, depth=bert_config.vocab_size, dtype=tf.float32)
+    one_hot_labels = tf.one_hot(label_ids, depth=bert_config.vocab_size, dtype=tf.float32)
 
     # The `positions` tensor might be zero-padded (if the sequence is too
     # short to have the maximum number of predictions). The `label_weights`
@@ -347,16 +416,15 @@ def get_masked_lm_output(bert_config, input_tensor, output_weights, positions,
 
   return (loss, per_example_loss, log_probs)
 
+
 def get_hydrophobicity_output(bert_config, input_tensor, output_weights, positions,
                          label_hydrophobicities, label_weights, k=3):
-  """Get loss and log probs for the masked LM."""
+  """Get loss and log probs for the hydrophobicity prediction."""
   input_tensor = gather_indexes(input_tensor, positions)
 
   hydrophobicity_range = 155*k + 1
 
   with tf.variable_scope("cls/hydrophobicity"):
-    # We apply one more non-linear transformation before the output layer.
-    # This matrix is not used after pre-training.
     with tf.variable_scope("transform"):
       input_tensor = tf.layers.dense(
           input_tensor,
@@ -366,8 +434,6 @@ def get_hydrophobicity_output(bert_config, input_tensor, output_weights, positio
               bert_config.initializer_range))
       input_tensor = modeling.layer_norm(input_tensor)
 
-    # The output weights are the same as the input embeddings, but there is
-    # an output-only bias for each token.
     output_bias = tf.get_variable(
         "output_bias",
         shape=[hydrophobicity_range],
@@ -379,14 +445,83 @@ def get_hydrophobicity_output(bert_config, input_tensor, output_weights, positio
     label_ids = tf.reshape(label_ids, [-1])
     label_weights = tf.reshape(label_weights, [-1])
 
-    #
-    one_hot_labels = tf.one_hot(
-        label_hydrophobicities, depth=hydrophobicity_range, dtype=tf.float32)
+    one_hot_labels = tf.one_hot(label_hydrophobicities, depth=hydrophobicity_range, dtype=tf.float32)
 
-    # The `positions` tensor might be zero-padded (if the sequence is too
-    # short to have the maximum number of predictions). The `label_weights`
-    # tensor has a value of 1.0 for every real prediction and 0.0 for the
-    # padding predictions.
+    per_example_loss = -tf.reduce_sum(log_probs * one_hot_labels, axis=[-1])
+    numerator = tf.reduce_sum(label_weights * per_example_loss)
+    denominator = tf.reduce_sum(label_weights) + 1e-5
+    loss = numerator / denominator
+
+  return (loss, per_example_loss, log_probs)
+
+
+def get_charge_output(bert_config, input_tensor, output_weights, positions,
+                         label_charges, label_weights, k=3):
+  """Get loss and log probs for the charge prediction."""
+  input_tensor = gather_indexes(input_tensor, positions)
+  charge_range = 2*(3*k) + 1
+
+  with tf.variable_scope("cls/charge"):
+    with tf.variable_scope("transform"):
+      input_tensor = tf.layers.dense(
+          input_tensor,
+          units=bert_config.hidden_size,
+          activation=modeling.get_activation(bert_config.hidden_act),
+          kernel_initializer=modeling.create_initializer(
+              bert_config.initializer_range))
+      input_tensor = modeling.layer_norm(input_tensor)
+
+    output_bias = tf.get_variable(
+        "output_bias",
+        shape=[charge_range],
+        initializer=tf.zeros_initializer())
+    logits = tf.matmul(input_tensor, output_weights, transpose_b=True)
+    logits = tf.nn.bias_add(logits, output_bias)
+    log_probs = tf.nn.log_softmax(logits, axis=-1)
+
+    label_ids = tf.reshape(label_ids, [-1])
+    label_weights = tf.reshape(label_weights, [-1])
+
+    one_hot_labels = tf.one_hot(label_charges, depth=charge_range, dtype=tf.float32)
+
+    per_example_loss = -tf.reduce_sum(log_probs * one_hot_labels, axis=[-1])
+    numerator = tf.reduce_sum(label_weights * per_example_loss)
+    denominator = tf.reduce_sum(label_weights) + 1e-5
+    loss = numerator / denominator
+
+  return (loss, per_example_loss, log_probs)
+
+
+def get_pk_output(bert_config, input_tensor, output_weights, positions,
+                         label_pks, label_weights, k=3):
+  """Get loss and log probs for the pk prediction."""
+  input_tensor = gather_indexes(input_tensor, positions)
+  pk_range = 11*k
+
+  with tf.variable_scope("cls/pk"):
+    with tf.variable_scope("transform"):
+      input_tensor = tf.layers.dense(
+          input_tensor,
+          units=bert_config.hidden_size,
+          activation=modeling.get_activation(bert_config.hidden_act),
+          kernel_initializer=modeling.create_initializer(
+              bert_config.initializer_range))
+      input_tensor = modeling.layer_norm(input_tensor)
+
+    output_bias = tf.get_variable(
+        "output_bias",
+        shape=[pk_range],
+        initializer=tf.zeros_initializer())
+    logits = tf.matmul(input_tensor, output_weights, transpose_b=True)
+    logits = tf.nn.bias_add(logits, output_bias)
+    log_probs = tf.nn.log_softmax(logits, axis=-1)
+
+    label_ids = tf.reshape(label_ids, [-1])
+    label_weights = tf.reshape(label_weights, [-1])
+
+    one_hot_labels = tf.one_hot(
+        label_pks, depth=pk_range, dtype=tf.float32)
+
     per_example_loss = -tf.reduce_sum(log_probs * one_hot_labels, axis=[-1])
     numerator = tf.reduce_sum(label_weights * per_example_loss)
     denominator = tf.reduce_sum(label_weights) + 1e-5
@@ -396,7 +531,42 @@ def get_hydrophobicity_output(bert_config, input_tensor, output_weights, positio
 
 
 
+def get_solubility_output(bert_config, input_tensor, output_weights, positions,
+                         label_solubilities, label_weights, k=3):
+  """Get loss and log probs for the solubility prediction."""
+  input_tensor = gather_indexes(input_tensor, positions)
+  solubility_range = 101*k
 
+  with tf.variable_scope("cls/solubility"):
+    with tf.variable_scope("transform"):
+      input_tensor = tf.layers.dense(
+          input_tensor,
+          units=bert_config.hidden_size,
+          activation=modeling.get_activation(bert_config.hidden_act),
+          kernel_initializer=modeling.create_initializer(
+              bert_config.initializer_range))
+      input_tensor = modeling.layer_norm(input_tensor)
+
+    output_bias = tf.get_variable(
+        "output_bias",
+        shape=[solubility_range],
+        initializer=tf.zeros_initializer())
+    logits = tf.matmul(input_tensor, output_weights, transpose_b=True)
+    logits = tf.nn.bias_add(logits, output_bias)
+    log_probs = tf.nn.log_softmax(logits, axis=-1)
+
+    label_ids = tf.reshape(label_ids, [-1])
+    label_weights = tf.reshape(label_weights, [-1])
+
+    one_hot_labels = tf.one_hot(
+        label_solubilities, depth=solubility_range, dtype=tf.float32)
+
+    per_example_loss = -tf.reduce_sum(log_probs * one_hot_labels, axis=[-1])
+    numerator = tf.reduce_sum(label_weights * per_example_loss)
+    denominator = tf.reduce_sum(label_weights) + 1e-5
+    loss = numerator / denominator
+
+  return (loss, per_example_loss, log_probs)
 
 
 def get_next_sentence_output(bert_config, input_tensor, labels):
@@ -462,12 +632,22 @@ def input_fn_builder(input_files,
             tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
         "masked_lm_weights":
             tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
-        "hydrophobicity_weights":
-            tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
         "hydrophobicities":
             tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
-        # "next_sentence_labels":
-        #     tf.FixedLenFeature([1], tf.int64),
+        "hydrophobicity_weights":
+            tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
+        "charges": 
+          tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
+        "charge_weights": 
+          tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
+        "pks": 
+          tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
+        "pk_weights": 
+          tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
+        "solubilities": 
+          tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
+        "solubility_weights": 
+          tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
     }
 
     # For training, we want a lot of parallel reading and shuffling.
@@ -569,16 +749,12 @@ def main(_):
 
   # If TPU is not available, this will fall back to normal Estimator on CPU
   # or GPU.
-
-#   logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=10)
-
   estimator = tf.contrib.tpu.TPUEstimator(
       use_tpu=FLAGS.use_tpu,
       model_fn=model_fn,
       config=run_config,
       train_batch_size=FLAGS.train_batch_size,
       eval_batch_size=FLAGS.eval_batch_size)
-    #   training_hooks=[logging_hook])
 
   if FLAGS.do_train:
     tf.logging.info("***** Running training *****")
@@ -593,16 +769,12 @@ def main(_):
   if FLAGS.do_eval:
     tf.logging.info("***** Running evaluation *****")
     tf.logging.info("  Batch size = %d", FLAGS.eval_batch_size)
-
     eval_input_fn = input_fn_builder(
         input_files=input_files,
         max_seq_length=FLAGS.max_seq_length,
         max_predictions_per_seq=FLAGS.max_predictions_per_seq,
         is_training=False)
-
-    result = estimator.evaluate(
-        input_fn=eval_input_fn, steps=FLAGS.max_eval_steps)
-
+    result = estimator.evaluate(input_fn=eval_input_fn, steps=FLAGS.max_eval_steps)
     output_eval_file = os.path.join(FLAGS.output_dir, "eval_results.txt")
     with tf.gfile.GFile(output_eval_file, "w") as writer:
       tf.logging.info("***** Eval results *****")
