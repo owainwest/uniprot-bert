@@ -23,6 +23,7 @@ import random
 import tokenization
 import tensorflow as tf
 import statistics
+import json
 
 from tqdm import tqdm
 
@@ -194,7 +195,7 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
         features["charges"] = create_int_feature(charges)
         features["charge_weights"] = create_float_feature(charge_weights)
 
-    if FLAGS.do_pkss:
+    if FLAGS.do_pks:
         pks = list(instance.pks)
         pk_weights = [1.0] * len(masked_lm_ids)
         while len(pks) < max_predictions_per_seq:
@@ -253,7 +254,7 @@ def create_float_feature(values):
 
 def create_training_instances(input_files, tokenizer, max_seq_length,
                               dupe_factor, short_seq_prob, masked_lm_prob,
-                              max_predictions_per_seq, rng, k, gapfactor):
+                              max_predictions_per_seq, rng, aa_features, k, gapfactor):
   """Create `TrainingInstance`s from raw text."""
   all_documents = [[]]
 
@@ -289,7 +290,7 @@ def create_training_instances(input_files, tokenizer, max_seq_length,
       instances.extend(
           create_instances_from_document(
               all_documents, document_index, max_seq_length, short_seq_prob,
-              masked_lm_prob, max_predictions_per_seq, vocab_words, rng, k, gapfactor))
+              masked_lm_prob, max_predictions_per_seq, vocab_words, rng, aa_features, k, gapfactor))
 
   rng.shuffle(instances)
   return instances
@@ -301,7 +302,7 @@ def create_training_instances(input_files, tokenizer, max_seq_length,
 # 3 mers and 7-masking - gap factor is 1 for an unsupported 3-center
 def create_instances_from_document(
     all_documents, document_index, max_seq_length, short_seq_prob,
-    masked_lm_prob, max_predictions_per_seq, vocab_words, rng, k=1, gapfactor=0):
+    masked_lm_prob, max_predictions_per_seq, vocab_words, rng, aa_features, k=1, gapfactor=0):
   """Creates `TrainingInstance`s for a single document."""
   document = all_documents[document_index]
 
@@ -319,11 +320,6 @@ def create_instances_from_document(
   if rng.random() < short_seq_prob:
     target_seq_length = rng.randint(2, max_num_tokens)
 
-  # We DON'T just concatenate all of the tokens from a document into a long
-  # sequence and choose an arbitrary split point because this would make the
-  # next sentence prediction task too easy. Instead, we split the input into
-  # segments "A" and "B" based on the actual "sentences" provided by the user
-  # input.
   instances = []
   i = 0
   while i < len(document):
@@ -352,10 +348,9 @@ def create_instances_from_document(
     segment_ids.append(0)
 
     (tokens, masked_lm_positions, masked_lm_labels, 
-    hydrophobicities, charges, pks, solubilities) = create_masked_lm_predictions(
-          tokens, masked_lm_prob, max_predictions_per_seq, vocab_words, rng, k, gapfactor)
+    hydrophobicities, charges, pks, solubilities) = create_local_predictions(
+          tokens, masked_lm_prob, max_predictions_per_seq, vocab_words, rng, aa_features, k, gapfactor)
 
-    # Add feature to TrainingInstance for either sequence or token level features
     instance = TrainingInstance(
         tokens=tokens,
         segment_ids=segment_ids,
@@ -380,137 +375,8 @@ MaskedLmInstance = collections.namedtuple("MaskedLmInstance",
   ["index", "label", "hydrophobicity", "charge", "pks", "solubility"])
 
 
-def get_hydrophobicity(peptide):
-    acid_to_hydro = {
-        'a': 41,
-        'r': -14,
-        'n': -28,
-        'd': -55,
-        'c': 49,
-        'e': -31,
-        'q': -10,
-        'g': 0,
-        'h': 8,
-        'i': 99,
-        'l': 97,
-        'k': -23,
-        'm': 74,
-        'f': 100,
-        'p': -46,
-        's': -5,
-        't': 13,
-        'w': 97,
-        'y': 63,
-        'v': 76
-    }
-    DEFAULT_GUESS = statistics.median(acid_to_hydro.values())
-    res = []
-    for amino_acid in peptide:
-        if amino_acid in acid_to_hydro:
-            res.append(acid_to_hydro[amino_acid])
-        else:
-            res.append(DEFAULT_GUESS)
-    return sum(res)
-
-def get_charge(peptide):
-    acid_to_charge = {
-        'a': 0,
-        'r': 1,
-        'n': 0,
-        'd': -1,
-        'c': 0,
-        'e': -1,
-        'q': 0,
-        'g': 0,
-        'h': 1,
-        'i': 0,
-        'l': 0,
-        'k': 1,
-        'm': 0,
-        'f': 0,
-        'p': 0,
-        's': 0,
-        't': 0,
-        'w': 0,
-        'y': 0,
-        'v': 0        
-    }
-    DEFAULT_GUESS = statistics.median(acid_to_charge.values())
-    res = []
-    for amino_acid in peptide:
-        if amino_acid in acid_to_charge:
-            res.append(acid_to_charge[amino_acid])
-        else:
-            res.append(DEFAULT_GUESS)
-    return sum(res)
-
-def get_pks(peptide):
-    acid_to_pks = {
-        'a': [9.87,2.35],
-        'r': [9.09,2.18],
-        'n': [8.8,2.02],
-        'd': [9.6,1.88],
-        'c': [10.78,1.71],
-        'e': [9.67,2.19],
-        'q': [9.13,2.17],
-        'g': [9.6,2.34],
-        'h': [8.97,1.78],
-        'i': [9.76,2.32],
-        'l': [9.6,2.36],
-        'k': [10.28,8.9],
-        'm': [9.21,2.28],
-        'f': [9.24,2.58],
-        'p': [10.6,1.99],
-        's': [9.15,2.21],
-        't': [9.12,2.15],
-        'w': [9.39,2.38],
-        'y': [9.11,2.2],
-        'v': [9.72,2.29]        
-    }
-    DEFAULT_GUESS = statistics.median(sum(v) for v in acid_to_pks.values())
-    res = []
-    for amino_acid in peptide:
-        if amino_acid in acid_to_pks:
-            res.append(sum(acid_to_pks[amino_acid]))
-        else:
-            res.append(DEFAULT_GUESS)
-    return int(sum(res))
-
-def get_solubility(peptide):
-    acid_to_solubility = {
-        'a': 15.8,
-        'r': 71.8,
-        'n': 2.4,
-        'd': 0.42,
-        'c': 100,
-        'e': 0.72,
-        'q': 2.6,
-        'g': 22.5,
-        'h': 4.19,
-        'i': 3.36,
-        'l': 2.37,
-        'k': 100,
-        'm': 5.14,
-        'f': 2.7,
-        'p': 1.54,
-        's': 36.2,
-        't': 100,
-        'w': 1.06,
-        'y': 0.038,
-        'v': 5.6        
-    }
-    DEFAULT_GUESS = statistics.median(acid_to_solubility.values())
-    res = []
-    for amino_acid in peptide:
-        if amino_acid in acid_to_solubility:
-            res.append(acid_to_solubility[amino_acid])
-        else:
-            res.append(DEFAULT_GUESS)
-    return int(sum(res))
-
-# Add in here to add a local feature
-def create_masked_lm_predictions(tokens, masked_lm_prob,
-                                 max_predictions_per_seq, vocab_words, rng, k, gapfactor, log=False):
+def create_local_predictions(tokens, masked_lm_prob,
+                                 max_predictions_per_seq, vocab_words, rng, aa_features, k, gapfactor, log=False):
   """Creates the predictions for the masked LM objective."""
 
   cand_indexes = []
@@ -551,10 +417,10 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
       masked_token = None
       original_token = tokens[index]
 
-      hydrophobicity = get_hydrophobicity(original_token) if FLAGS.do_hydro else 0
-      charge = get_charge(original_token) if FLAGS.do_charge else 0
-      pks = get_pks(original_token) if FLAGS.do_pkss else 0
-      solubility = get_solubility(original_token) if FLAGS.do_solubility else 0
+      hydrophobicity = get_hydrophobicity(original_token, aa_features) if FLAGS.do_hydro else 0
+      charge = get_charge(original_token, aa_features) if FLAGS.do_charge else 0
+      pks = get_pks(original_token, aa_features) if FLAGS.do_pks else 0
+      solubility = get_solubility(original_token, aa_features) if FLAGS.do_solubility else 0
 
       if rng.random() < 0.8:         # 80% of the time, replace with [MASK]
         masked_token = "[MASK]"
@@ -565,8 +431,6 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
           #! TODO: in the future, maybe do something more intelligent than applying
           # the same tandom k-mer as a substitute to all the tokens within the window
           masked_token = vocab_words[rng.randint(0, len(vocab_words) - 1)]
-
-
 
       # Masks the selected token and the k-1 neighbour tokens on each side, so that 
       # peptide overlap doesn't trivialize the mask prediction task
@@ -598,6 +462,47 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
   return (output_tokens, masked_lm_positions, masked_lm_labels, hydrophobicities, charges, pks, solubilities)
 
 
+def get_hydrophobicity(peptide, aa_features):
+    DEFAULT_GUESS = statistics.median(feats["hydrophobicity"] for _, feats in aa_features.iteritems())
+    res = []
+    for amino_acid in peptide:
+        if amino_acid in aa_features:
+            res.append(aa_features[amino_acid]["hydrophobicity"])
+        else:
+            res.append(DEFAULT_GUESS)
+    return int(sum(res))
+
+def get_charge(peptide, aa_features):
+    DEFAULT_GUESS = statistics.median(feats["charge"] for _, feats in aa_features.iteritems())
+    res = []
+    for amino_acid in peptide:
+        if amino_acid in aa_features:
+            res.append(aa_features[amino_acid]["charge"])
+        else:
+            res.append(DEFAULT_GUESS)
+    return int(sum(res))
+
+def get_pks(peptide, aa_features):
+    DEFAULT_GUESS = statistics.median(sum(feats["pks"]) for _, feats in aa_features.iteritems())
+    res = []
+    for amino_acid in peptide:
+        if amino_acid in aa_features:
+            res.append(sum(aa_featues[amino_acid]["pks"]))
+        else:
+            res.append(DEFAULT_GUESS)
+    return int(sum(res))
+
+def get_solubility(peptide, aa_features):
+    DEFAULT_GUESS = statistics.median(feats["solubility"] for _, feats in aa_features.iteritems())
+    res = []
+    for amino_acid in peptide:
+        if amino_acid in aa_features:
+            res.append(aa_features[amino_acid]["solubility"])
+        else:
+            res.append(DEFAULT_GUESS)
+    return int(sum(res))
+
+
 def truncate_seq_pair(tokens_a, tokens_b, max_num_tokens, rng):
   """Truncates a pair of sequences to a maximum sequence length."""
   lost = 0
@@ -610,8 +515,6 @@ def truncate_seq_pair(tokens_a, tokens_b, max_num_tokens, rng):
     assert len(trunc_tokens) >= 1
     lost += 1
 
-    # We want to sometimes truncate from the front and sometimes from the
-    # back to add more randomness and avoid biases.
     if rng.random() < 0.5:
       del trunc_tokens[0]
     else:
@@ -632,11 +535,15 @@ def main(_):
   for input_file in input_files:
     tf.compat.v1.logging.info("  %s", input_file)
 
+  with open("./aa_features.json", "r") as aa_feature_file:
+    aa_feature_text = aa_feature_file.read()
+  aa_features = json.loads(aa_feature_text)
+
   rng = random.Random(FLAGS.random_seed)
   instances = create_training_instances(
       input_files, tokenizer, FLAGS.max_seq_length, FLAGS.dupe_factor,
       FLAGS.short_seq_prob, FLAGS.masked_lm_prob, FLAGS.max_predictions_per_seq,
-      rng, FLAGS.k, FLAGS.gapfactor)
+      rng, aa_features, FLAGS.k, FLAGS.gapfactor)
 
   output_files = FLAGS.output_file.split(",")
   tf.compat.v1.logging.info("*** Writing to output files ***")
