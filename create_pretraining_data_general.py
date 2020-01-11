@@ -22,6 +22,7 @@ import collections
 import random
 import tokenization
 import tensorflow as tf
+import statistics
 
 from tqdm import tqdm
 
@@ -53,7 +54,8 @@ flags.DEFINE_integer("max_seq_length", 128, "Maximum sequence length.")
 flags.DEFINE_integer("max_predictions_per_seq", 20,
                      "Maximum number of masked LM predictions per sequence.")
 
-flags.DEFINE_integer("random_seed", 12345, "Random seed for data generation.")
+flags.DEFINE_integer("random_seed", 12345, 
+    "Random seed for data generation.")
 
 flags.DEFINE_integer(
     "dupe_factor", 10,
@@ -65,26 +67,45 @@ flags.DEFINE_integer(
 
 flags.DEFINE_integer(
     "gapfactor", 0, 
-    "gapfactor=n gives an unsupported central gap of length 2n+1"
-)
+    "gapfactor=n gives an unsupported central gap of length 2n+1")
 
-flags.DEFINE_float("masked_lm_prob", 0.15, "Masked LM probability.")
+flags.DEFINE_float("masked_lm_prob", 0.15, 
+    "Masked LM probability.")
 
 flags.DEFINE_float(
     "short_seq_prob", 0.1,
-    "Probability of creating sequences which are shorter than the "
-    "maximum length.")
+    "Probability of creating sequences which are shorter than the maximum length.")
+
+flags.DEFINE_bool(
+    "do_hydro": False,
+    "Whether or not to use local hydrophobicity predictions in training.")
+
+flags.DEFINE_bool(
+    "do_charge": False,
+    "Whether or not to use local charge predictions in training.")
+
+flags.DEFINE_bool(
+    "do_pks": False,
+    "Whether or not to use local predictions of pKa NH2, pKa COOH, Pk(R) in training.")
+
+flags.DEFINE_bool(
+    "do_solubility": False,
+    "Whether or not to use local predictions of solubility in training.")
 
 
 class TrainingInstance(object):
   """A single training instance (sentence pair)."""
 
-  def __init__(self, tokens, segment_ids, masked_lm_positions, masked_lm_labels, hydrophobicities):
+  def __init__(self, tokens, segment_ids, masked_lm_positions, masked_lm_labels, 
+    hydrophobicities=None, charges=None, pks=None, solubilities=None):
     self.tokens = tokens
     self.segment_ids = segment_ids
     self.masked_lm_positions = masked_lm_positions
     self.masked_lm_labels = masked_lm_labels
     self.hydrophobicities = hydrophobicities
+    self.charges = charges
+    self.pks = pks
+    self.solubilities = solubilities
 
   def __str__(self):
     s = ""
@@ -95,8 +116,18 @@ class TrainingInstance(object):
         [str(x) for x in self.masked_lm_positions]))
     s += "masked_lm_labels: %s\n" % (" ".join(
         [tokenization.printable_text(x) for x in self.masked_lm_labels]))
-    s += "hydrophobicities: %s\n" % (" ".join(
-        [str(x) for x in self.hydrophobicities]))
+    if self.hydrophobicities is not None:
+        s += "hydrophobicities: %s\n" % (" ".join(
+            [str(x) for x in self.hydrophobicities]))
+    if self.charges is not None:
+        s += "charges: %s\n" % (" ".join(
+            [str(x) for x in self.charges]))
+    if self.pks is not None:
+        s += "pks: %s\n" % (" ".join(
+            [str(x) for x in self.pks]))
+    if self.solubilities is not None:
+        s += "solubilities: %s\n" % (" ".join(
+            [str(x) for x in self.solubilities]))
     s += "\n"
     return s
 
@@ -130,19 +161,13 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     assert len(segment_ids) == max_seq_length
 
     masked_lm_positions = list(instance.masked_lm_positions)
-    hydrophobicities = list(instance.hydrophobicities)
     masked_lm_ids = tokenizer.convert_tokens_to_ids(instance.masked_lm_labels)
     masked_lm_weights = [1.0] * len(masked_lm_ids)
-    hydrophobicity_weights = [1.0] * len(masked_lm_ids)
-
     while len(masked_lm_positions) < max_predictions_per_seq:
       masked_lm_positions.append(0)
       masked_lm_ids.append(0)
       masked_lm_weights.append(0.0)
-      hydrophobicities.append(0)
-      hydrophobicity_weights.append(0.0)
 
-    # next_sentence_label = 1 if instance.is_random_next else 0
 
     features = collections.OrderedDict()
     features["input_ids"] = create_int_feature(input_ids)
@@ -151,9 +176,43 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     features["masked_lm_positions"] = create_int_feature(masked_lm_positions)
     features["masked_lm_ids"] = create_int_feature(masked_lm_ids)
     features["masked_lm_weights"] = create_float_feature(masked_lm_weights)
-    features["hydrophobicities"] = create_int_feature(hydrophobicities)
-    features["hydrophobicity_weights"] = create_float_feature(hydrophobicity_weights)
-    # features["next_sentence_labels"] = create_int_feature([next_sentence_label])
+
+    if flags.do_hydro:
+        hydrophobicities = list(instance.hydrophobicities)
+        hydrophobicity_weights = [1.0] * len(masked_lm_ids)
+        while len(hydrophobicities) < max_predictions_per_seq:
+            hydrophobicities.append(0)
+            hydrophobicity_weights.append(0.0)
+        features["hydrophobicities"] = create_int_feature(hydrophobicities)
+        features["hydrophobicity_weights"] = create_float_feature(hydrophobicity_weights)
+
+    if FLAGS.do_charge:
+        charges = list(instance.charges)
+        charge_weights = [1.0] * len(masked_lm_ids)
+        while len(charges) < max_predictions_per_seq:
+            charges.append(0)
+            charge_weights.append(0.0)
+        features["charges"] = create_int_feature(charges)
+        features["charge_weights"] = create_float_feature(charge_weights)
+
+    if FLAGS.do_pks:
+        pks = list(instance.pks)
+        pk_weights = [1.0] * len(masked_lm_ids)
+        while len(pks) < max_predictions_per_seq:
+            pks.append(0)
+            pk_weights.append(0.0)
+        features["pks"] = create_float_feature(pks)
+        features["pk_weights"] = create_float_feature(pk_weights)
+
+    if FLAGS.do_solubility:
+        solubilities = list(instance.solubilities)
+        solubility_weights = [1.0] * len(masked_lm_ids)
+        while len(solubilities) < max_predictions_per_seq:
+            solubilities.append(0)
+            solubility_weights.append(0.0)
+        features["solubilities"] = create_float_feature(solubilities)
+        features["solubility_weights"] = create_float_feature(solubility_weights)
+
 
     tf_example = tf.train.Example(features=tf.train.Features(feature=features))
 
@@ -293,8 +352,8 @@ def create_instances_from_document(
     tokens.append("[SEP]")
     segment_ids.append(0)
 
-    (tokens, masked_lm_positions,
-      masked_lm_labels, hydrophobicities) = create_masked_lm_predictions(
+    (tokens, masked_lm_positions, masked_lm_labels, 
+    hydrophobicities, charges, pks, solubilities) = create_masked_lm_predictions(
           tokens, masked_lm_prob, max_predictions_per_seq, vocab_words, rng, k, gapfactor)
 
     # Add feature to TrainingInstance for either sequence or token level features
@@ -303,7 +362,10 @@ def create_instances_from_document(
         segment_ids=segment_ids,
         masked_lm_positions=masked_lm_positions,
         masked_lm_labels=masked_lm_labels,
-        hydrophobicities=hydrophobicities)
+        hydrophobicities=hydrophobicities,
+        charges=charges,
+        pks=pks,
+        solubilities=solubilities)
     instances.append(instance)
 
     if lost > 10:
@@ -316,6 +378,7 @@ def create_instances_from_document(
 
 
 MaskedLmInstance = collections.namedtuple("MaskedLmInstance", ["index", "label", "hydrophobicity"])
+
 
 def get_hydrophobicity(peptide):
     acid_to_hydro = {
@@ -340,11 +403,107 @@ def get_hydrophobicity(peptide):
         'y': 63,
         'v': 76
     }
-    DEFAULT_GUESS = 22
+    DEFAULT_GUESS = statistics.median(acid_to_hydro.values())
     res = []
     for amino_acid in peptide:
         if amino_acid in acid_to_hydro:
             res.append(acid_to_hydro[amino_acid])
+        else:
+            res.append(DEFAULT_GUESS)
+    return sum(res)
+
+def get_charge(peptide):
+    acid_to_charge = {
+        'a': 0,
+        'r': 1,
+        'n': 0,
+        'd': -1,
+        'c': 0,
+        'e': -1,
+        'q': 0,
+        'g': 0,
+        'h': 1,
+        'i': 0,
+        'l': 0,
+        'k': 1,
+        'm': 0,
+        'f': 0,
+        'p': 0,
+        's': 0,
+        't': 0,
+        'w': 0,
+        'y': 0,
+        'v': 0        
+    }
+    DEFAULT_GUESS = statistics.median(acid_to_charge.values())
+    res = []
+    for amino_acid in peptide:
+        if amino_acid in acid_to_charge:
+            res.append(acid_to_charge[amino_acid])
+        else:
+            res.append(DEFAULT_GUESS)
+    return sum(res)
+
+def get_pks(peptide):
+    acid_to_pks = {
+        'a': [9.87,2.35],
+        'r': [9.09,2.18],
+        'n': [8.8,2.02],
+        'd': [9.6,1.88],
+        'c': [10.78,1.71],
+        'e': [9.67,2.19],
+        'q': [9.13,2.17],
+        'g': [9.6,2.34],
+        'h': [8.97,1.78],
+        'i': [9.76,2.32],
+        'l': [9.6,2.36],
+        'k': [10.28,8.9],
+        'm': [9.21,2.28],
+        'f': [9.24,2.58],
+        'p': [10.6,1.99],
+        's': [9.15,2.21],
+        't': [9.12,2.15],
+        'w': [9.39,2.38],
+        'y': [9.11,2.2],
+        'v': [9.72,2.29]        
+    }
+    DEFAULT_GUESS = statistics.median(sum(acid_to_pks.values()))
+    res = []
+    for amino_acid in peptide:
+        if amino_acid in acid_to_pks:
+            res.append(sum(acid_to_pks[amino_acid]))
+        else:
+            res.append(DEFAULT_GUESS)
+    return sum(res)
+
+def get_solubility(peptide):
+    acid_to_solubility = {
+        'a': 15.8,
+        'r': 71.8,
+        'n': 2.4,
+        'd': 0.42,
+        'c': 100,
+        'e': 0.72,
+        'q': 2.6,
+        'g': 22.5,
+        'h': 4.19,
+        'i': 3.36,
+        'l': 2.37,
+        'k': 100,
+        'm': 5.14,
+        'f': 2.7,
+        'p': 1.54,
+        's': 36.2,
+        't': 100,
+        'w': 1.06,
+        'y': 0.038,
+        'v': 5.6        
+    }
+    DEFAULT_GUESS = statistics.median(acid_to_solubility.values())
+    res = []
+    for amino_acid in peptide:
+        if amino_acid in acid_to_solubility:
+            res.append(acid_to_solubility[amino_acid])
         else:
             res.append(DEFAULT_GUESS)
     return sum(res)
@@ -391,17 +550,18 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
     for index in index_set:
       masked_token = None
       original_token = tokens[index]
-      hydrophobicity = get_hydrophobicity(original_token)
 
-      # 80% of the time, replace with [MASK]
-      if rng.random() < 0.8:
+      hydrophobicity = get_hydrophobicity(original_token) if FLAGS.do_hydro else None
+      charge = get_charge(original_token) if FLAGS.do_charge else None
+      pks = get_pks(original_token) if FLAGS.do_pks else None
+      solubility = get_solubility(original_token) if FLAGS.do_solubility else None
+
+      if rng.random() < 0.8:         # 80% of the time, replace with [MASK]
         masked_token = "[MASK]"
       else:
-        # 10% of the time, keep original
-        if rng.random() < 0.5:
+        if rng.random() < 0.5:           # 10% of the time, keep original
           masked_token = tokens[index]
-        # 10% of the time, replace with random word
-        else:
+        else: # 10% of the time, replace with random word
           #! TODO: in the future, maybe do something more intelligent than applying
           # the same tandom k-mer as a substitute to all the tokens within the window
           masked_token = vocab_words[rng.randint(0, len(vocab_words) - 1)]
@@ -414,13 +574,9 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
       low_index = max(0, index - k - gapfactor + 1)
 
       for i in range(low_index, high_index + 1):
-        covered_indexes.add(index)
-
-      for i in range(low_index, high_index + 1):
+        covered_indexes.add(i)
         output_tokens[i] = masked_token
-
-      for i in range(low_index, high_index + 1):
-        masked_lms.append(MaskedLmInstance(index=i, label=tokens[i], hydrophobicity=hydrophobicity))
+        masked_lms.append(MaskedLmInstance(index=i, label=tokens[i], hydrophobicity=hydrophobicity, charge=charge, pks=pks, solubility=solubility))
    
   assert len(masked_lms) <= num_to_predict
   masked_lms = sorted(masked_lms, key=lambda x: x.index)
@@ -428,12 +584,18 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
   masked_lm_positions = []
   masked_lm_labels = []
   hydrophobicities = []
+  charges = []
+  pks = []
+  solubilities = []
   for p in masked_lms:
     masked_lm_positions.append(p.index)
     masked_lm_labels.append(p.label)
     hydrophobicities.append(p.hydrophobicity)
+    charges.append(p.charge)
+    pks.append(p.pks)
+    solubilities.append(p.solubility)
   
-  return (output_tokens, masked_lm_positions, masked_lm_labels, hydrophobicities)
+  return (output_tokens, masked_lm_positions, masked_lm_labels, hydrophobicities, charges, pks, solubilities)
 
 
 def truncate_seq_pair(tokens_a, tokens_b, max_num_tokens, rng):

@@ -108,6 +108,24 @@ flags.DEFINE_integer(
     "num_tpu_cores", 8,
     "Only used if `use_tpu` is True. Total number of TPU cores to use.")
 
+flags.DEFINE_bool(
+    "do_hydro": False,
+    "Whether or not to use local hydrophobicity predictions in training. Must be the same as was used when creating pretraining data.")
+
+flags.DEFINE_bool(
+    "do_charge": False,
+    "Whether or not to use local charge predictions in training. Must be the same as was used when creating pretraining data.")
+
+flags.DEFINE_bool(
+    "do_pks": False,
+    "Whether or not to use local predictions of pKa NH2, pKa COOH, Pk(R) in training. Must be the same as was used when creating pretraining data.")
+
+flags.DEFINE_bool(
+    "do_solubility": False,
+    "Whether or not to use local predictions of solubility in training. Must be the same as was used when creating pretraining data.")
+
+
+
 
 def model_fn_builder(bert_config, init_checkpoint, learning_rate,
                      num_train_steps, num_warmup_steps, use_tpu,
@@ -127,8 +145,22 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
     masked_lm_positions = features["masked_lm_positions"]
     masked_lm_ids = features["masked_lm_ids"]
     masked_lm_weights = features["masked_lm_weights"]
-    hydrophobicities = features["hydrophobicities"]
-    hydrophobicity_weights = features["hydrophobicity_weights"]
+
+    if FLAGS.do_hydro:
+        hydrophobicities = features["hydrophobicities"]
+        hydrophobicity_weights = features["hydrophobicity_weights"]
+
+    if FLAGS.do_charge:
+        charges = features["charges"]
+        charge_weights = features["charges_weights"]
+
+    if FLAGS.do_pks:
+        pks = features["pks"]
+        pks_weights = features["pks_weights"]
+
+    if FLAGS.do_solubility:
+        solubilities = features["solubilities"]
+        solubility_weights = features["solubility_weights"]
     # next_sentence_labels = features["next_sentence_labels"]
 
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
