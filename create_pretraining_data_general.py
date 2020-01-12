@@ -219,7 +219,7 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     writer_index = (writer_index + 1) % len(writers)
     total_written += 1
 
-    if inst_index < 20:
+    if inst_index < 3:
       tf.compat.v1.logging.info("*** Example ***")
       tf.compat.v1.logging.info("tokens: %s" % " ".join(
           [tokenization.printable_text(x) for x in instance.tokens]))

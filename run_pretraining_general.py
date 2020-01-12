@@ -109,27 +109,27 @@ flags.DEFINE_integer(
     "Only used if `use_tpu` is True. Total number of TPU cores to use.")
 
 flags.DEFINE_bool(
-    "do_hydro": False,
+    "do_hydro", False,
     "Whether or not to use local hydrophobicity predictions in training. Must be the same as was used when creating pretraining data.")
 
 flags.DEFINE_bool(
-    "do_charge": False,
+    "do_charge", False,
     "Whether or not to use local charge predictions in training. Must be the same as was used when creating pretraining data.")
 
 flags.DEFINE_bool(
-    "do_pks": False,
+    "do_pks", False,
     "Whether or not to use local predictions of pKa NH2, pKa COOH in training. Must be the same as was used when creating pretraining data.")
 
 flags.DEFINE_bool(
-    "do_solubility": False,
+    "do_solubility", False,
     "Whether or not to use local predictions of solubility in training. Must be the same as was used when creating pretraining data.")
 
 
 
 
 def model_fn_builder(bert_config, init_checkpoint, learning_rate,
-                     num_train_steps, num_warmup_steps, use_tpu,
-                     use_one_hot_embeddings):
+                     num_train_steps, num_warmup_steps, use_tpu, use_one_hot_embeddings,
+                     do_hydro=False, do_charge=False, do_pks=False, do_solubility=False):
   """Returns `model_fn` closure for TPUEstimator."""
 
   def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
@@ -146,19 +146,19 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
     masked_lm_ids = features["masked_lm_ids"]
     masked_lm_weights = features["masked_lm_weights"]
 
-    if FLAGS.do_hydro:
+    if do_hydro:
         hydrophobicities = features["hydrophobicities"]
         hydrophobicity_weights = features["hydrophobicity_weights"]
 
-    if FLAGS.do_charge:
+    if do_charge:
         charges = features["charges"]
         charge_weights = features["charge_weights"]
 
-    if FLAGS.do_pks:
+    if do_pks:
         pk = features["pk"]
         pk_weights = features["pk_weights"]
 
-    if FLAGS.do_solubility:
+    if do_solubility:
         solubilities = features["solubilities"]
         solubility_weights = features["solubility_weights"]
 
@@ -178,28 +178,28 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
          bert_config, model.get_sequence_output(), model.get_embedding_table(),
          masked_lm_positions, masked_lm_ids, masked_lm_weights)
 
-    if FLAGS.do_hydro:
+    if do_hydro:
       (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = get_hydrophobicity_output(
           bert_config, model.get_sequence_output(), model.get_embedding_table(),
           masked_lm_positions, hydrophobicities, hydrophobicity_weights, k)
     else:
       (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = (0, 0, None)
 
-    if FLAGS.do_charge:
+    if do_charge:
       (charge_loss, charge_example_loss, charge_log_probs) = get_charge_output(
           bert_config, model.get_sequence_output(), model.get_embedding_table(),
           masked_lm_positions, charges, charge_weights, k)
     else:
       (charge_loss, charge_example_loss, charge_log_probs) = (0, 0, None)
 
-    if FLAGS.do_pks:
+    if do_pks:
       (pk_loss, pk_example_loss, pk_log_probs) = get_pk_output(
           bert_config, model.get_sequence_output(), model.get_embedding_table(),
           masked_lm_positions, pks, pk_weights, k)
     else:
       (pk_loss, pk_example_loss, pk_log_probs) = (0, 0, None)
 
-    if FLAGS.do_solubility:
+    if do_solubility:
       (solubility_loss, solubility_example_loss, solubility_log_probs) = get_solubility_output(
           bert_config, model.get_sequence_output(), model.get_embedding_table(),
           masked_lm_positions, solubilities, solubility_weights, k)
@@ -264,7 +264,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
         masked_lm_mean_loss = tf.metrics.mean(
             values=masked_lm_example_loss, weights=masked_lm_weights)
 
-        if FLAGS.do_hydro:
+        if do_hydro:
           hydrophobicity_log_probs = tf.reshape(hydrophobicity_log_probs,
                                           [-1, hydrophobicity_log_probs.shape[-1]])
           hydrophobicity_predictions = tf.argmax(
@@ -282,7 +282,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
           hydrophobicity_accuracy = 0
           hydrophobicity_mean_loss = 0
 
-        if FLAGS.do_charge:
+        if do_charge:
           charge_log_probs = tf.reshape(charge_log_probs,
                                           [-1, charge_log_probs.shape[-1]])
           charge_predictions = tf.argmax(
@@ -300,7 +300,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
           charge_accuracy = 0
           charge_mean_loss = 0
 
-        if FLAGS.do_pks:
+        if do_pks:
           pk_log_probs = tf.reshape(pk_log_probs,
                                           [-1, pk_log_probs.shape[-1]])
           pk_predictions = tf.argmax(
@@ -318,7 +318,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
           pk_accuracy = 0
           pk_mean_loss = 0
 
-        if FLAGS.do_solubility:
+        if do_solubility:
           solubility_log_probs = tf.reshape(solubility_log_probs,
                                           [-1, solubility_log_probs.shape[-1]])
           solubility_predictions = tf.argmax(
@@ -718,7 +718,11 @@ def main(_):
       num_train_steps=FLAGS.num_train_steps,
       num_warmup_steps=FLAGS.num_warmup_steps,
       use_tpu=FLAGS.use_tpu,
-      use_one_hot_embeddings=FLAGS.use_tpu)
+      use_one_hot_embeddings=FLAGS.use_tpu,
+      do_hydro=FLAGS.do_hydro,
+      do_charge=FLAGS.do_charge,
+      do_pks=FLAGS.do_pks,
+      do_solubility=FLAGS.do_solubility)
 
   # If TPU is not available, this will fall back to normal Estimator on CPU
   # or GPU.
