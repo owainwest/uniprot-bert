@@ -428,15 +428,20 @@ def get_hydrophobicity_output(bert_config, input_tensor, output_weights, positio
           activation=modeling.get_activation(bert_config.hidden_act),
           kernel_initializer=modeling.create_initializer(
               bert_config.initializer_range))
+      print(">> hydrophobicity input tensor")
+      print(input_tensor)
       input_tensor = modeling.layer_norm(input_tensor)
 
     output_bias = tf.get_variable(
         "output_bias",
         shape=[hydrophobicity_range],
         initializer=tf.zeros_initializer())
+    print(">> hydrophobicity output bias")
     logits = tf.matmul(input_tensor, output_weights, transpose_b=True)
+    print(">> after matmul")
     logits = tf.nn.bias_add(logits, output_bias)
     log_probs = tf.nn.log_softmax(logits, axis=-1)
+
 
     label_ids = tf.reshape(label_ids, [-1])
     label_weights = tf.reshape(label_weights, [-1])
