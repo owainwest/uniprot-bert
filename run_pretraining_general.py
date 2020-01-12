@@ -437,9 +437,11 @@ def get_hydrophobicity_output(bert_config, input_tensor, output_weights, positio
         shape=[hydrophobicity_range],
         initializer=tf.zeros_initializer())
     print(">> hydrophobicity output bias")
+    print(output_bias)
     logits = tf.matmul(input_tensor, output_weights, transpose_b=True)
     print(">> after matmul")
     logits = tf.nn.bias_add(logits, output_bias)
+    print(">> after bias_add")
     log_probs = tf.nn.log_softmax(logits, axis=-1)
 
 
@@ -447,7 +449,7 @@ def get_hydrophobicity_output(bert_config, input_tensor, output_weights, positio
     label_weights = tf.reshape(label_weights, [-1])
 
     one_hot_labels = tf.one_hot(label_hydrophobicities, depth=hydrophobicity_range, dtype=tf.float32)
-
+    print(">> labels", labels)
     per_example_loss = -tf.reduce_sum(log_probs * one_hot_labels, axis=[-1])
     numerator = tf.reduce_sum(label_weights * per_example_loss)
     denominator = tf.reduce_sum(label_weights) + 1e-5
