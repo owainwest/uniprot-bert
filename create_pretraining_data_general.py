@@ -213,12 +213,10 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
         features["solubilities"] = create_int_feature(solubilities)
         features["solubility_weights"] = create_float_feature(solubility_weights)
 
-
     tf_example = tf.train.Example(features=tf.train.Features(feature=features))
 
     writers[writer_index].write(tf_example.SerializeToString())
     writer_index = (writer_index + 1) % len(writers)
-
     total_written += 1
 
     if inst_index < 20:
@@ -409,9 +407,7 @@ def create_local_predictions(tokens, masked_lm_prob,
       cand_indexes.append([i])
 
   rng.shuffle(cand_indexes)
-
   output_tokens = list(tokens)
-
   num_to_predict = min(max_predictions_per_seq,
                        max(1, int(round(len(tokens) * masked_lm_prob))))
 
