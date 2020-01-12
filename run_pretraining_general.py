@@ -614,11 +614,11 @@ def input_fn_builder(input_files,
         "charge_weights": 
           tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
         "pks": 
-          tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
+          tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
         "pk_weights": 
           tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
         "solubilities": 
-          tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
+          tf.FixedLenFeature([max_predictions_per_seq], tf.int64,
         "solubility_weights": 
           tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
     }
