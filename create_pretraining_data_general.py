@@ -254,7 +254,9 @@ def create_float_feature(values):
 
 def create_training_instances(input_files, tokenizer, max_seq_length,
                               dupe_factor, short_seq_prob, masked_lm_prob,
-                              max_predictions_per_seq, rng, aa_features, k, gapfactor):
+                              max_predictions_per_seq, rng, aa_features, 
+                              do_hydro, do_charge, do_pks, do_solubility,
+                              k, gapfactor):
   """Create `TrainingInstance`s from raw text."""
   all_documents = [[]]
 
@@ -290,7 +292,9 @@ def create_training_instances(input_files, tokenizer, max_seq_length,
       instances.extend(
           create_instances_from_document(
               all_documents, document_index, max_seq_length, short_seq_prob,
-              masked_lm_prob, max_predictions_per_seq, vocab_words, rng, aa_features, k, gapfactor))
+              masked_lm_prob, max_predictions_per_seq, vocab_words, rng, aa_features, 
+              do_hydro, do_charge, do_pks, do_solubility,
+              k, gapfactor))
 
   rng.shuffle(instances)
   return instances
@@ -302,7 +306,9 @@ def create_training_instances(input_files, tokenizer, max_seq_length,
 # 3 mers and 7-masking - gap factor is 1 for an unsupported 3-center
 def create_instances_from_document(
     all_documents, document_index, max_seq_length, short_seq_prob,
-    masked_lm_prob, max_predictions_per_seq, vocab_words, rng, aa_features, k=1, gapfactor=0):
+    masked_lm_prob, max_predictions_per_seq, vocab_words, rng, aa_features, 
+    do_hydro, do_charge, do_pks, do_solubility,
+    k, gapfactor):
   """Creates `TrainingInstance`s for a single document."""
   document = all_documents[document_index]
 
@@ -349,8 +355,19 @@ def create_instances_from_document(
 
     (tokens, masked_lm_positions, masked_lm_labels, 
     hydrophobicities, charges, pks, solubilities) = create_local_predictions(
-          tokens, masked_lm_prob, max_predictions_per_seq, vocab_words, rng, aa_features, k, gapfactor)
+          tokens, masked_lm_prob, max_predictions_per_seq, vocab_words, rng, aa_features, 
+          do_hydro, do_charge, do_pks, do_solubility,
+          k, gapfactor)
 
+    if not do_hydro:
+      hydrophobicities = None
+    if not do_charge:
+      charges = None
+    if not do_pks:
+      pks = None
+    if not do_solubility:
+      solubilities = None
+    
     instance = TrainingInstance(
         tokens=tokens,
         segment_ids=segment_ids,
@@ -376,7 +393,9 @@ MaskedLmInstance = collections.namedtuple("MaskedLmInstance",
 
 
 def create_local_predictions(tokens, masked_lm_prob,
-                                 max_predictions_per_seq, vocab_words, rng, aa_features, k, gapfactor, log=False):
+                                 max_predictions_per_seq, vocab_words, rng, aa_features,  
+                                 do_hydro, do_charge, do_pks, do_solubility, 
+                                 k, gapfactor, log=False):
   """Creates the predictions for the masked LM objective."""
 
   cand_indexes = []
@@ -417,10 +436,10 @@ def create_local_predictions(tokens, masked_lm_prob,
       masked_token = None
       original_token = tokens[index]
 
-      hydrophobicity = get_hydrophobicity(original_token, aa_features) if FLAGS.do_hydro else 0
-      charge = get_charge(original_token, aa_features) if FLAGS.do_charge else 0
-      pks = get_pks(original_token, aa_features) if FLAGS.do_pks else 0
-      solubility = get_solubility(original_token, aa_features) if FLAGS.do_solubility else 0
+      hydrophobicity = get_hydrophobicity(original_token, aa_features) if do_hydro else 0
+      charge = get_charge(original_token, aa_features) if do_charge else 0
+      pks = get_pks(original_token, aa_features) if do_pks else 0
+      solubility = get_solubility(original_token, aa_features) if do_solubility else 0
 
       if rng.random() < 0.8:         # 80% of the time, replace with [MASK]
         masked_token = "[MASK]"
@@ -445,23 +464,12 @@ def create_local_predictions(tokens, masked_lm_prob,
   assert len(masked_lms) <= num_to_predict
   masked_lms = sorted(masked_lms, key=lambda x: x.index)
 
-  masked_lm_positions = []
-  masked_lm_labels = []
-  hydrophobicities = [] if FLAGS.do_hydro else None
-  charges = [] if FLAGS.do_charge else None
-  pks = [] if FLAGS.do_pks else None
-  solubilities = [] if FLAGS.do_solubility else None
-  for p in masked_lms:
-    masked_lm_positions.append(p.index)
-    masked_lm_labels.append(p.label)
-    if FLAGS.do_hydro:
-      hydrophobicities.append(p.hydrophobicity)
-    if FLAGS.do_charge:
-      charges.append(p.charge)
-    if FLAGS.do_pks:
-      pks.append(p.pks)
-    if FLAGS.do_solubility:
-      solubilities.append(p.solubility)
+  masked_lm_positions = [p.index for p in masked_lms]
+  masked_lm_labels = [p.label for p in masked_lms]
+  hydrophobicities = [p.hydrophobicity for p in masked_lms] if do_hydro else None
+  charges = [p.charge for p in masked_lms] if do_charge else None
+  pks = [p.pks for p in masked_lms] if do_pks else None
+  solubilities = [p.solubility for p in masked_lms] if do_solubility else None
   
   return (output_tokens, masked_lm_positions, masked_lm_labels, hydrophobicities, charges, pks, solubilities)
 
@@ -547,7 +555,9 @@ def main(_):
   instances = create_training_instances(
       input_files, tokenizer, FLAGS.max_seq_length, FLAGS.dupe_factor,
       FLAGS.short_seq_prob, FLAGS.masked_lm_prob, FLAGS.max_predictions_per_seq,
-      rng, aa_features, FLAGS.k, FLAGS.gapfactor)
+      rng, aa_features, 
+      FLAGS.do_hydro, FLAGS.do_charge, FLAGS.do_pks, FLAGS.do_solubility,
+      FLAGS.k, FLAGS.gapfactor)
 
   output_files = FLAGS.output_file.split(",")
   tf.compat.v1.logging.info("*** Writing to output files ***")
