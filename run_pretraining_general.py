@@ -588,7 +588,7 @@ def input_fn_builder(input_files,
                      do_hydro,
                      do_charge,
                      do_pks,
-                     do_solubility
+                     do_solubility,
                      num_cpu_threads=4):
   """Creates an `input_fn` closure to be passed to TPUEstimator."""
 
