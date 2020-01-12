@@ -612,17 +612,17 @@ def input_fn_builder(input_files,
     }
 
     if do_hydro:
-      names_to_features["hydrophobicities"] = tf.FixedLenFeature([max_predictions_per_seq], tf.int64)
-      names_to_features["hydrophobicity_weights"] = tf.FixedLenFeature([max_predictions_per_seq], tf.float32)
+      name_to_features["hydrophobicities"] = tf.FixedLenFeature([max_predictions_per_seq], tf.int64)
+      name_to_features["hydrophobicity_weights"] = tf.FixedLenFeature([max_predictions_per_seq], tf.float32)
     if do_charge:
-      names_to_features["charges"] = tf.FixedLenFeature([max_predictions_per_seq], tf.int64)
-      names_to_features["charge_weights"] = tf.FixedLenFeature([max_predictions_per_seq], tf.float32)
+      name_to_features["charges"] = tf.FixedLenFeature([max_predictions_per_seq], tf.int64)
+      name_to_features["charge_weights"] = tf.FixedLenFeature([max_predictions_per_seq], tf.float32)
     if do_pks:
-      names_to_features["pks"] = tf.FixedLenFeature([max_predictions_per_seq], tf.int64)
-      names_to_features["pk_weights"] = tf.FixedLenFeature([max_predictions_per_seq], tf.float32)
+      name_to_features["pks"] = tf.FixedLenFeature([max_predictions_per_seq], tf.int64)
+      name_to_features["pk_weights"] = tf.FixedLenFeature([max_predictions_per_seq], tf.float32)
     if do_solubility:
-      names_to_features["solubilities"] = tf.FixedLenFeature([max_predictions_per_seq], tf.int64)
-      names_to_features["solubility_weights"] = tf.FixedLenFeature([max_predictions_per_seq], tf.float32)
+      name_to_features["solubilities"] = tf.FixedLenFeature([max_predictions_per_seq], tf.int64)
+      name_to_features["solubility_weights"] = tf.FixedLenFeature([max_predictions_per_seq], tf.float32)
 
     # For training, we want a lot of parallel reading and shuffling.
     # For eval, we want no shuffling and parallel reading doesn't matter.
