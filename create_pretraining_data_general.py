@@ -447,17 +447,21 @@ def create_local_predictions(tokens, masked_lm_prob,
 
   masked_lm_positions = []
   masked_lm_labels = []
-  hydrophobicities = []
-  charges = []
-  pks = []
-  solubilities = []
+  hydrophobicities = [] if FLAGS.do_hydro else None
+  charges = [] if FLAGS.do_charge else None
+  pks = [] if FLAGS.do_pks else None
+  solubilities = [] if FLAGS.do_solubility else None
   for p in masked_lms:
     masked_lm_positions.append(p.index)
     masked_lm_labels.append(p.label)
-    hydrophobicities.append(p.hydrophobicity)
-    charges.append(p.charge)
-    pks.append(p.pks)
-    solubilities.append(p.solubility)
+    if FLAGS.do_hydro:
+      hydrophobicities.append(p.hydrophobicity)
+    if FLAGS.do_charge:
+      charges.append(p.charge)
+    if FLAGS.do_pks:
+      pks.append(p.pks)
+    if FLAGS.do_solubility:
+      solubilities.append(p.solubility)
   
   return (output_tokens, masked_lm_positions, masked_lm_labels, hydrophobicities, charges, pks, solubilities)
 
