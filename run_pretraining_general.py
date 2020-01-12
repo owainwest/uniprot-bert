@@ -585,11 +585,11 @@ def input_fn_builder(input_files,
                      max_seq_length,
                      max_predictions_per_seq,
                      is_training,
-                     num_cpu_threads=4,
-                     do_hydro=False,
-                     do_charge=False,
-                     do_pks=False,
-                     do_solubility=False):
+                     do_hydro,
+                     do_charge,
+                     do_pks,
+                     do_solubility
+                     num_cpu_threads=4):
   """Creates an `input_fn` closure to be passed to TPUEstimator."""
 
   def input_fn(params):
