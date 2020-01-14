@@ -375,7 +375,7 @@ class ColaProcessor(DataProcessor):
 
 
 #!TODO: finish implementing. Should get species labels directly from the dataset. 
-def ScopeProcessor(DataProcessor):
+class ScopeProcessor(DataProcessor):
   """Processor for the Uniprot dataset for species classification"""
 
   def get_train_examples(self, data_dir):
