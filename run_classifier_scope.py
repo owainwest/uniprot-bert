@@ -258,7 +258,7 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   print(ex_index)
   label_map = {}
   for (i, label) in enumerate(label_list):
-      print(label)
+    print(label)
     label_map[label] = i
 
   tokens_a = tokenizer.tokenize(example.text_a)
