@@ -204,7 +204,7 @@ class DataProcessor(object):
       return lines
 
 
-def ScopeProcessor(DataProcessor):
+class ScopeProcessor(DataProcessor):
   """Processor for SCOPe dataset, species classification"""
 
   def get_train_examples(self, data_dir):
