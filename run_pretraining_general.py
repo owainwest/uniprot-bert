@@ -371,9 +371,11 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
 
 
 def get_masked_lm_output(bert_config, input_tensor, output_weights, positions,
-                         label_ids, label_weights):
+                         label_ids, label_weights, log=False):
   """Get loss and log probs for the masked LM."""
   input_tensor = gather_indexes(input_tensor, positions)
+
+
 
   with tf.variable_scope("cls/predictions"):
     # We apply one more non-linear transformation before the output layer.
@@ -415,7 +417,7 @@ def get_masked_lm_output(bert_config, input_tensor, output_weights, positions,
 
 
 def get_hydrophobicity_output(bert_config, input_tensor, output_weights, positions,
-                         label_hydrophobicities, label_weights, k=3):
+                         label_hydrophobicities, label_weights, k=3, log=False):
   """Get loss and log probs for the hydrophobicity prediction."""
   input_tensor = gather_indexes(input_tensor, positions)
   hydrophobicity_range = 155*k + 1
@@ -428,17 +430,20 @@ def get_hydrophobicity_output(bert_config, input_tensor, output_weights, positio
           activation=modeling.get_activation(bert_config.hidden_act),
           kernel_initializer=modeling.create_initializer(
               bert_config.initializer_range))
-      print(">> hydrophobicity input tensor")
+      print(">> hydrophobicity input tensor within variable scope")
       print(input_tensor)
       input_tensor = modeling.layer_norm(input_tensor)
+      print(">> hydrophobicity input tensor within variable scope")
 
-    output_bias = tf.get_variable(
-        "output_bias",
+      output_bias = tf.get_variable(
+          "output_bias",
         shape=[hydrophobicity_range],
         initializer=tf.zeros_initializer())
-    print(">> hydrophobicity output bias")
-    print(output_bias)
+      print(">> hydrophobicity output bias")
+      print(output_bias)
+
     logits = tf.matmul(input_tensor, output_weights, transpose_b=True)
+    print(">> ")
     print(input_tensor)
     print(output_weights)
     print(logits)
@@ -462,7 +467,7 @@ def get_hydrophobicity_output(bert_config, input_tensor, output_weights, positio
 
 
 def get_charge_output(bert_config, input_tensor, output_weights, positions,
-                         label_charges, label_weights, k=3):
+                         label_charges, label_weights, k=3, log=False):
   """Get loss and log probs for the charge prediction."""
   input_tensor = gather_indexes(input_tensor, positions)
   charge_range = 2*k + 1
@@ -499,7 +504,7 @@ def get_charge_output(bert_config, input_tensor, output_weights, positions,
 
 
 def get_pk_output(bert_config, input_tensor, output_weights, positions,
-                         label_pks, label_weights, k=3):
+                         label_pks, label_weights, k=3, log=False):
   """Get loss and log probs for the pk prediction."""
   input_tensor = gather_indexes(input_tensor, positions)
   pk_range = 10*k + 1
@@ -538,7 +543,7 @@ def get_pk_output(bert_config, input_tensor, output_weights, positions,
 
 
 def get_solubility_output(bert_config, input_tensor, output_weights, positions,
-                         label_solubilities, label_weights, k=3):
+                         label_solubilities, label_weights, k=3, log=False):
   """Get loss and log probs for the solubility prediction."""
   input_tensor = gather_indexes(input_tensor, positions)
   solubility_range = 100*k + 1
