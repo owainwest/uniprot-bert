@@ -180,7 +180,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
 
     if do_hydro:
       (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = get_hydrophobicity_output(
-          bert_config, model.get_sequence_output(), model.get_embedding_table(),
+          bert_config, model.get_sequence_output(), #model.get_embedding_table(),
           masked_lm_positions, hydrophobicities, hydrophobicity_weights, k)
     else:
       (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = (0, 0, None)
@@ -416,7 +416,7 @@ def get_masked_lm_output(bert_config, input_tensor, output_weights, positions,
   return (loss, per_example_loss, log_probs)
 
 
-def get_hydrophobicity_output(bert_config, input_tensor, output_weights, positions,
+def get_hydrophobicity_output(bert_config, input_tensor, positions,
                          label_hydrophobicities, label_weights, k=3, log=False):
   """Get loss and log probs for the hydrophobicity prediction."""
   input_tensor = gather_indexes(input_tensor, positions)
@@ -435,6 +435,11 @@ def get_hydrophobicity_output(bert_config, input_tensor, output_weights, positio
       input_tensor = modeling.layer_norm(input_tensor)
       print(">> hydrophobicity input tensor within variable scope")
 
+
+      output_weights = tf.get_variable(
+        "output_weights",
+        shape=[hydrophobicity_range, bert_config.hidden_size],
+        initializer=modeling.create_initializer(bert_config.initializer_range))
       output_bias = tf.get_variable(
           "output_bias",
         shape=[hydrophobicity_range],
