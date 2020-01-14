@@ -189,7 +189,7 @@ class DataProcessor(object):
     """Gets a collection of `InputExample`s for prediction."""
     raise NotImplementedError()
 
-  def get_labels(self):
+  def get_labels(self, data_dir):
     """Gets the list of labels for this data set."""
     raise NotImplementedError()
 
@@ -222,7 +222,7 @@ class ScopeProcessor(DataProcessor):
     return self._create_examples(
         self._read_tsv(os.path.join(data_dir, "test.tsv")), "test")
 
-  def get_labels(self):
+  def get_labels(self, data_dir):
     """See base class."""
     return self._read_tsv(os.path.join(data_dir, "class-list.tsv"))
 
