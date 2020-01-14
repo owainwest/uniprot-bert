@@ -464,7 +464,7 @@ def get_hydrophobicity_output(bert_config, input_tensor, positions,
     label_weights = tf.reshape(label_weights, [-1])
 
     one_hot_labels = tf.one_hot(label_hydrophobicities, depth=hydrophobicity_range, dtype=tf.float32)
-    print(">> labels", labels)
+    print(">> labels", one_hot_labels)
     per_example_loss = -tf.reduce_sum(log_probs * one_hot_labels, axis=[-1])
     numerator = tf.reduce_sum(label_weights * per_example_loss)
     denominator = tf.reduce_sum(label_weights) + 1e-5
