@@ -375,7 +375,7 @@ class ColaProcessor(DataProcessor):
 
 
 #!TODO: finish implementing. Should get species labels directly from the dataset. 
-def SpeciesProcessor(DataProcessor):
+def ScopeProcessor(DataProcessor):
   """Processor for the Uniprot dataset for species classification"""
 
   def get_train_examples(self, data_dir):
@@ -834,7 +834,7 @@ def main(_):
       "mnli": MnliProcessor,
       "mrpc": MrpcProcessor,
       "xnli": XnliProcessor,
-      "species": SpeciesProcessor,
+      "scope": ScopeProcessor,
   }
 
   tokenization.validate_case_matches_checkpoint(FLAGS.do_lower_case,
