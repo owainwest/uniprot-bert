@@ -181,27 +181,27 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
     if do_hydro:
       (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = get_hydrophobicity_output(
           bert_config, model.get_sequence_output(), #model.get_embedding_table(),
-          masked_lm_positions, hydrophobicities, hydrophobicity_weights, k)
+          masked_lm_positions, hydrophobicities, hydrophobicity_weights, k, log=True)
     else:
       (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = (0, 0, None)
 
     if do_charge:
       (charge_loss, charge_example_loss, charge_log_probs) = get_charge_output(
-          bert_config, model.get_sequence_output(), model.get_embedding_table(),
+          bert_config, model.get_sequence_output(), #model.get_embedding_table(),
           masked_lm_positions, charges, charge_weights, k)
     else:
       (charge_loss, charge_example_loss, charge_log_probs) = (0, 0, None)
 
     if do_pks:
       (pk_loss, pk_example_loss, pk_log_probs) = get_pk_output(
-          bert_config, model.get_sequence_output(), model.get_embedding_table(),
+          bert_config, model.get_sequence_output(), #model.get_embedding_table(),
           masked_lm_positions, pks, pk_weights, k)
     else:
       (pk_loss, pk_example_loss, pk_log_probs) = (0, 0, None)
 
     if do_solubility:
       (solubility_loss, solubility_example_loss, solubility_log_probs) = get_solubility_output(
-          bert_config, model.get_sequence_output(), model.get_embedding_table(),
+          bert_config, model.get_sequence_output(), #model.get_embedding_table(),
           masked_lm_positions, solubilities, solubility_weights, k)
     else:
       (solubility_loss, solubility_example_loss, solubility_log_probs) = (0, 0, None)
@@ -430,11 +430,10 @@ def get_hydrophobicity_output(bert_config, input_tensor, positions,
           activation=modeling.get_activation(bert_config.hidden_act),
           kernel_initializer=modeling.create_initializer(
               bert_config.initializer_range))
-      print(">> hydrophobicity input tensor within variable scope")
-      print(input_tensor)
       input_tensor = modeling.layer_norm(input_tensor)
-      print(">> hydrophobicity input tensor within variable scope")
-
+      if log:
+        print(">> hydrophobicity input tensor within variable scope")
+        print(input_tensor)
 
       output_weights = tf.get_variable(
         "output_weights",
@@ -444,17 +443,20 @@ def get_hydrophobicity_output(bert_config, input_tensor, positions,
           "output_bias",
         shape=[hydrophobicity_range],
         initializer=tf.zeros_initializer())
-      print(">> hydrophobicity output bias")
-      print(output_bias)
+      if log:
+        print(">> hydrophobicity output bias")
+        print(output_bias)
 
     logits = tf.matmul(input_tensor, output_weights, transpose_b=True)
-    print(">> ")
-    print(input_tensor)
-    print(output_weights)
-    print(logits)
-    print(">> after matmul")
+    if log:
+      print(">> ")
+      print(input_tensor)
+      print(output_weights)
+      print(logits)
+      print(">> after matmul")
     logits = tf.nn.bias_add(logits, output_bias)
-    print(">> after bias_add")
+    if log:
+      print(">> after bias_add")
     log_probs = tf.nn.log_softmax(logits, axis=-1)
 
 
@@ -471,7 +473,7 @@ def get_hydrophobicity_output(bert_config, input_tensor, positions,
   return (loss, per_example_loss, log_probs)
 
 
-def get_charge_output(bert_config, input_tensor, output_weights, positions,
+def get_charge_output(bert_config, input_tensor, positions,
                          label_charges, label_weights, k=3, log=False):
   """Get loss and log probs for the charge prediction."""
   input_tensor = gather_indexes(input_tensor, positions)
@@ -487,6 +489,11 @@ def get_charge_output(bert_config, input_tensor, output_weights, positions,
               bert_config.initializer_range))
       input_tensor = modeling.layer_norm(input_tensor)
 
+
+    output_weights = tf.get_variable(
+        "output_weights",
+        shape=[charge_range, bert_config.hidden_size],
+        initializer=modeling.create_initializer(bert_config.initializer_range))
     output_bias = tf.get_variable(
         "output_bias",
         shape=[charge_range],
@@ -508,7 +515,7 @@ def get_charge_output(bert_config, input_tensor, output_weights, positions,
   return (loss, per_example_loss, log_probs)
 
 
-def get_pk_output(bert_config, input_tensor, output_weights, positions,
+def get_pk_output(bert_config, input_tensor, positions,
                          label_pks, label_weights, k=3, log=False):
   """Get loss and log probs for the pk prediction."""
   input_tensor = gather_indexes(input_tensor, positions)
@@ -524,6 +531,11 @@ def get_pk_output(bert_config, input_tensor, output_weights, positions,
               bert_config.initializer_range))
       input_tensor = modeling.layer_norm(input_tensor)
 
+
+    output_weights = tf.get_variable(
+        "output_weights",
+        shape=[pk_range, bert_config.hidden_size],
+        initializer=modeling.create_initializer(bert_config.initializer_range))
     output_bias = tf.get_variable(
         "output_bias",
         shape=[pk_range],
@@ -547,7 +559,7 @@ def get_pk_output(bert_config, input_tensor, output_weights, positions,
 
 
 
-def get_solubility_output(bert_config, input_tensor, output_weights, positions,
+def get_solubility_output(bert_config, input_tensor, positions,
                          label_solubilities, label_weights, k=3, log=False):
   """Get loss and log probs for the solubility prediction."""
   input_tensor = gather_indexes(input_tensor, positions)
@@ -563,6 +575,11 @@ def get_solubility_output(bert_config, input_tensor, output_weights, positions,
               bert_config.initializer_range))
       input_tensor = modeling.layer_norm(input_tensor)
 
+
+    output_weights = tf.get_variable(
+        "output_weights",
+        shape=[solubility_range, bert_config.hidden_size],
+        initializer=modeling.create_initializer(bert_config.initializer_range))
     output_bias = tf.get_variable(
         "output_bias",
         shape=[solubility_range],
