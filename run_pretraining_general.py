@@ -460,7 +460,7 @@ def get_hydrophobicity_output(bert_config, input_tensor, positions,
     log_probs = tf.nn.log_softmax(logits, axis=-1)
 
 
-    label_ids = tf.reshape(label_ids, [-1])
+    label_hydrophobicities = tf.reshape(label_hydrophobicities, [-1])
     label_weights = tf.reshape(label_weights, [-1])
 
     one_hot_labels = tf.one_hot(label_hydrophobicities, depth=hydrophobicity_range, dtype=tf.float32)
@@ -502,7 +502,7 @@ def get_charge_output(bert_config, input_tensor, positions,
     logits = tf.nn.bias_add(logits, output_bias)
     log_probs = tf.nn.log_softmax(logits, axis=-1)
 
-    label_ids = tf.reshape(label_ids, [-1])
+    label_charges = tf.reshape(label_charges, [-1])
     label_weights = tf.reshape(label_weights, [-1])
 
     one_hot_labels = tf.one_hot(label_charges, depth=charge_range, dtype=tf.float32)
@@ -544,7 +544,7 @@ def get_pk_output(bert_config, input_tensor, positions,
     logits = tf.nn.bias_add(logits, output_bias)
     log_probs = tf.nn.log_softmax(logits, axis=-1)
 
-    label_ids = tf.reshape(label_ids, [-1])
+    label_pks = tf.reshape(label_pks, [-1])
     label_weights = tf.reshape(label_weights, [-1])
 
     one_hot_labels = tf.one_hot(
@@ -588,7 +588,7 @@ def get_solubility_output(bert_config, input_tensor, positions,
     logits = tf.nn.bias_add(logits, output_bias)
     log_probs = tf.nn.log_softmax(logits, axis=-1)
 
-    label_ids = tf.reshape(label_ids, [-1])
+    label_solubilities = tf.reshape(label_solubilities, [-1])
     label_weights = tf.reshape(label_weights, [-1])
 
     one_hot_labels = tf.one_hot(
