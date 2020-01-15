@@ -683,7 +683,7 @@ def input_fn_builder(input_files,
 
 
     d = d.enumerate() 
-    for element in d.as_numpy_iterator(): 
+    for element in d: 
       print(element) 
     # We must `drop_remainder` on training because the TPU requires fixed
     # size dimensions. For eval, we assume we are evaluating on the CPU or GPU
