@@ -145,22 +145,14 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
     masked_lm_positions = features["masked_lm_positions"]
     masked_lm_ids = features["masked_lm_ids"]
     masked_lm_weights = features["masked_lm_weights"]
-
-    if do_hydro:
-        hydrophobicities = features["hydrophobicities"]
-        hydrophobicity_weights = features["hydrophobicity_weights"]
-
-    if do_charge:
-        charges = features["charges"]
-        charge_weights = features["charge_weights"]
-
-    if do_pks:
-        pk = features["pk"]
-        pk_weights = features["pk_weights"]
-
-    if do_solubility:
-        solubilities = features["solubilities"]
-        solubility_weights = features["solubility_weights"]
+    hydrophobicities = features["hydrophobicities"]
+    hydrophobicity_weights = features["hydrophobicity_weights"]
+    charges = features["charges"]
+    charge_weights = features["charge_weights"]
+    pk = features["pk"]
+    pk_weights = features["pk_weights"]
+    solubilities = features["solubilities"]
+    solubility_weights = features["solubility_weights"]
 
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
