@@ -624,7 +624,7 @@ def input_fn_builder(input_files,
   def input_fn(params):
     """The actual input function."""
     batch_size = params["batch_size"]
-
+    print("> in input_fn")
     name_to_features = {
         "input_ids":
             tf.FixedLenFeature([max_seq_length], tf.int64),
@@ -681,10 +681,15 @@ def input_fn_builder(input_files,
       # out-of-range exceptions.
       d = d.repeat()
 
+
+    d = d.enumerate() 
+    for element in d.as_numpy_iterator(): 
+      print(element) 
     # We must `drop_remainder` on training because the TPU requires fixed
     # size dimensions. For eval, we assume we are evaluating on the CPU or GPU
     # and we *don't* want to drop the remainder, otherwise we wont cover
     # every sample.
+    print(">> right before map_and_batch")
     d = d.apply(
         tf.contrib.data.map_and_batch(
             lambda record: _decode_record(record, name_to_features),
