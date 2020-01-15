@@ -149,7 +149,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
     hydrophobicity_weights = features["hydrophobicity_weights"]
     charges = features["charges"]
     charge_weights = features["charge_weights"]
-    pk = features["pk"]
+    pks = features["pks"]
     pk_weights = features["pk_weights"]
     solubilities = features["solubilities"]
     solubility_weights = features["solubility_weights"]
@@ -513,7 +513,7 @@ def get_pk_output(bert_config, input_tensor, positions,
   input_tensor = gather_indexes(input_tensor, positions)
   pk_range = 10*k + 1
 
-  with tf.variable_scope("cls/pk"):
+  with tf.variable_scope("cls/pks"):
     with tf.variable_scope("transform"):
       input_tensor = tf.layers.dense(
           input_tensor,
