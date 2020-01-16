@@ -163,11 +163,31 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     masked_lm_positions = list(instance.masked_lm_positions)
     masked_lm_ids = tokenizer.convert_tokens_to_ids(instance.masked_lm_labels)
     masked_lm_weights = [1.0] * len(masked_lm_ids)
+
+    hydrophobicities = list(instance.hydrophobicities)
+    hydrophobicity_weights = [1.0] * len(masked_lm_ids)
+    
+    solubilities = list(instance.solubilities)
+    solubility_weights = [1.0] * len(masked_lm_ids)
+    
+    charges = list(instance.charges)
+    charge_weights = [1.0] * len(masked_lm_ids)
+    
+    pks = list(instance.pks)
+    pk_weights = [1.0] * len(masked_lm_ids)
+
     while len(masked_lm_positions) < max_predictions_per_seq:
       masked_lm_positions.append(0)
       masked_lm_ids.append(0)
+      hydrophobicities.append(0)
+      solubilities.append(0)
+      charges.append(0)
+      pks.append(0)
       masked_lm_weights.append(0.0)
-
+      hydrophobicity_weights.append(0.0)
+      solubility_weights.append(0.0)
+      charge_weights.append(0.0)
+      pk_weights.append(0.0)
 
     features = collections.OrderedDict()
     features["input_ids"] = create_int_feature(input_ids)
@@ -175,51 +195,27 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     features["segment_ids"] = create_int_feature(segment_ids)
     features["masked_lm_positions"] = create_int_feature(masked_lm_positions)
     features["masked_lm_ids"] = create_int_feature(masked_lm_ids)
+    features["hydrophobicities"] = create_int_feature(hydrophobicities)
+    features["solubilities"] = create_int_feature(solubilities)
+    features["charges"] = create_int_feature(charges)
+    features["pks"] = create_int_feature(pks)
     features["masked_lm_weights"] = create_float_feature(masked_lm_weights)
+    features["hydrophobicity_weights"] = create_float_feature(hydrophobicity_weights)
+    features["solubility_weights"] = create_float_feature(solubility_weights)
+    features["charge_weights"] = create_float_feature(charge_weights)
+    features["pk_weights"] = create_float_feature(pk_weights)
 
-    if FLAGS.do_hydro:
-        hydrophobicities = list(instance.hydrophobicities)
-        hydrophobicity_weights = [1.0] * len(masked_lm_ids)
-        while len(hydrophobicities) < max_predictions_per_seq:
-            hydrophobicities.append(0)
-            hydrophobicity_weights.append(0.0)
-        features["hydrophobicities"] = create_int_feature(hydrophobicities)
-        features["hydrophobicity_weights"] = create_float_feature(hydrophobicity_weights)
-
-    if FLAGS.do_charge:
-        charges = list(instance.charges)
-        charge_weights = [1.0] * len(masked_lm_ids)
-        while len(charges) < max_predictions_per_seq:
-            charges.append(0)
-            charge_weights.append(0.0)
-        features["charges"] = create_int_feature(charges)
-        features["charge_weights"] = create_float_feature(charge_weights)
-
-    if FLAGS.do_pks:
-        pks = list(instance.pks)
-        pk_weights = [1.0] * len(masked_lm_ids)
-        while len(pks) < max_predictions_per_seq:
-            pks.append(0)
-            pk_weights.append(0.0)
-        features["pks"] = create_int_feature(pks)
-        features["pk_weights"] = create_float_feature(pk_weights)
-
-    if FLAGS.do_solubility:
-        solubilities = list(instance.solubilities)
-        solubility_weights = [1.0] * len(masked_lm_ids)
-        while len(solubilities) < max_predictions_per_seq:
-            solubilities.append(0)
-            solubility_weights.append(0.0)
-        features["solubilities"] = create_int_feature(solubilities)
-        features["solubility_weights"] = create_float_feature(solubility_weights)
+    # print(features)
 
     tf_example = tf.train.Example(features=tf.train.Features(feature=features))
+
+    # print(tf_example)
 
     writers[writer_index].write(tf_example.SerializeToString())
     writer_index = (writer_index + 1) % len(writers)
     total_written += 1
 
-    if inst_index < 3:
+    if inst_index < 2:
       tf.compat.v1.logging.info("*** Example ***")
       tf.compat.v1.logging.info("tokens: %s" % " ".join(
           [tokenization.printable_text(x) for x in instance.tokens]))

@@ -37,7 +37,7 @@ flags.DEFINE_string(
     "This specifies the model architecture.")
 
 flags.DEFINE_string(
-    "input_file", None,
+    "input_file", "E:/research/pe1/pe1_1gram_1e-4/pretraining_data/shard_000.tfrecord,E:/research/pe1/pe1_1gram_1e-4/pretraining_data/shard_001.tfrecord",
     "Input TF example files (can be a glob or comma separated).")
 
 flags.DEFINE_string(
@@ -144,15 +144,15 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
     segment_ids = features["segment_ids"]
     masked_lm_positions = features["masked_lm_positions"]
     masked_lm_ids = features["masked_lm_ids"]
-    masked_lm_weights = features["masked_lm_weights"]
     hydrophobicities = features["hydrophobicities"]
-    hydrophobicity_weights = features["hydrophobicity_weights"]
-    charges = features["charges"]
-    charge_weights = features["charge_weights"]
-    pks = features["pks"]
-    pk_weights = features["pk_weights"]
     solubilities = features["solubilities"]
+    charges = features["charges"]
+    pks = features["pks"]
+    masked_lm_weights = features["masked_lm_weights"]
+    hydrophobicity_weights = features["hydrophobicity_weights"]
     solubility_weights = features["solubility_weights"]
+    charge_weights = features["charge_weights"]
+    pk_weights = features["pk_weights"]
 
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
@@ -614,10 +614,10 @@ def input_fn_builder(input_files,
                      max_seq_length,
                      max_predictions_per_seq,
                      is_training,
-                     do_hydro,
-                     do_charge,
-                     do_pks,
-                     do_solubility,
+                     do_hydro=True,
+                     do_charge=True,
+                     do_pks=True,
+                     do_solubility=True,
                      num_cpu_threads=4):
   """Creates an `input_fn` closure to be passed to TPUEstimator."""
 
@@ -636,22 +636,22 @@ def input_fn_builder(input_files,
             tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
         "masked_lm_ids":
             tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
-        "masked_lm_weights":
-            tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
         "hydrophobicities":
             tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
-        "hydrophobicity_weights":
-            tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
-        "charges":
-          tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
-        "charge_weights":
-          tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
-        "pks":
-          tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
-        "pk_weights":
-          tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
         "solubilities":
           tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
+        "charges":
+          tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
+        "pks":
+          tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
+        "masked_lm_weights":
+            tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
+        "hydrophobicity_weights":
+            tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
+        "pk_weights":
+          tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
+        "charge_weights":
+          tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
         "solubility_weights":
            tf.FixedLenFeature([max_predictions_per_seq], tf.float32),
     }
@@ -682,7 +682,7 @@ def input_fn_builder(input_files,
       d = d.repeat()
 
 
-    # print(d.)
+    print(d)
     # We must `drop_remainder` on training because the TPU requires fixed
     # size dimensions. For eval, we assume we are evaluating on the CPU or GPU
     # and we *don't* want to drop the remainder, otherwise we wont cover
@@ -777,7 +777,10 @@ def main(_):
         input_files=input_files,
         max_seq_length=FLAGS.max_seq_length,
         max_predictions_per_seq=FLAGS.max_predictions_per_seq,
-        is_training=True)
+        is_training=True,
+        do_charge=FLAGS.do_charge,
+        do_pks=FLAGS.do_pks,
+        do_solubility=FLAGS.do_solubility)
     estimator.train(input_fn=train_input_fn, max_steps=FLAGS.num_train_steps)
 
   if FLAGS.do_eval:

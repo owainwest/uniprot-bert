@@ -165,13 +165,13 @@ class InputFeatures(object):
                input_ids,
                input_mask,
                segment_ids,
-               label_id,
-               is_real_example=True):
+               label_id):
+              #  is_real_example=True):
     self.input_ids = input_ids
     self.input_mask = input_mask
     self.segment_ids = segment_ids
     self.label_id = label_id
-    self.is_real_example = is_real_example
+    # self.is_real_example = is_real_example
 
 
 class DataProcessor(object):
@@ -429,8 +429,8 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
         input_ids=[0] * max_seq_length,
         input_mask=[0] * max_seq_length,
         segment_ids=[0] * max_seq_length,
-        label_id=0,
-        is_real_example=False)
+        label_id=0)
+        # is_real_example=False)
 
   label_map = {}
   for (i, label) in enumerate(label_list):
