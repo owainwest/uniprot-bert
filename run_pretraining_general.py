@@ -199,7 +199,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
       (solubility_loss, solubility_example_loss, solubility_log_probs) = (0, 0, None)
 
     print("-"*40)
-    print("masked_lm_loss: " masked_lm_loss)
+    print("masked_lm_loss: ", masked_lm_loss)
     print("hydro_loss: ", hydrophobicity_loss)
     print("charge_loss: ", charge_loss)
     print("pk_loss: ", pk_loss)
