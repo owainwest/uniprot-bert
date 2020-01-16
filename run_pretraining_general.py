@@ -198,6 +198,13 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
     else:
       (solubility_loss, solubility_example_loss, solubility_log_probs) = (0, 0, None)
 
+    print("-"*40)
+    print("masked_lm_loss: " masked_lm_loss)
+    print("hydro_loss: ", hydrophobicity_loss)
+    print("charge_loss: ", charge_loss)
+    print("pk_loss: ", pk_loss)
+    print("solubility_loss: ", solubility_loss)
+
     total_loss = masked_lm_loss + hydrophobicity_loss + charge_loss + pk_loss + solubility_loss
 
     tvars = tf.trainable_variables()
@@ -699,6 +706,20 @@ def input_fn_builder(input_files,
   return input_fn
 
 
+def custom_metric(labels, predictions):
+    # This function will be called by the Estimator, passing its predictions.
+    # Let's suppose you want to add the "mean" metric...
+
+    # Accessing the class predictions (careful, the key name may change from one canned Estimator to another)
+    predicted_classes = predictions["class_ids"]  
+
+    # Defining the metric (value and update tensors):
+    custom_metric = tf.metrics.mean(labels, predicted_classes, name="custom_metric")
+
+    # Returning as a dict:
+    return {"custom_metric": custom_metric}
+
+
 def _decode_record(record, name_to_features):
   """Decodes a record to a TensorFlow example."""
   example = tf.parse_single_example(record, name_to_features)
@@ -769,6 +790,40 @@ def main(_):
       config=run_config,
       train_batch_size=FLAGS.train_batch_size,
       eval_batch_size=FLAGS.eval_batch_size)
+
+  tf.contrib.estimator.add_metrics(classifier, custom_metric)
+
+
+# def custom_metric(labels, predictions):
+#     # This function will be called by the Estimator, passing its predictions.
+#     # Let's suppose you want to add the "mean" metric...
+
+#     # Accessing the class predictions (careful, the key name may change from one canned Estimator to another)
+#     predicted_classes = predictions["class_ids"]  
+
+#     # Defining the metric (value and update tensors):
+#     custom_metric = tf.metrics.mean(labels, predicted_classes, name="custom_metric")
+
+#     # Returning as a dict:
+#     return {"custom_metric": custom_metric}
+
+# # Initializing your canned Estimator:
+# classifier = tf.estimator.DNNClassifier(feature_columns=columns_feat, hidden_units=[10, 10], n_classes=NUM_CLASSES)
+
+# # Adding your custom metrics:
+# classifier = tf.contrib.estimator.add_metrics(classifier, custom_metric)
+
+# # Training/Evaluating:
+# tf.logging.set_verbosity(tf.logging.INFO) # Just to have some logs to display for demonstration
+
+# train_spec = tf.estimator.TrainSpec(input_fn=lambda:your_train_dataset_function(),
+#                                     max_steps=TRAIN_STEPS)
+# eval_spec=tf.estimator.EvalSpec(input_fn=lambda:your_test_dataset_function(),
+#                                 steps=EVAL_STEPS,
+#                                 start_delay_secs=EVAL_DELAY,
+#                                 throttle_secs=EVAL_INTERVAL)
+# tf.estimator.train_and_evaluate(classifier, train_spec, eval_spec)
+
 
   if FLAGS.do_train:
     tf.logging.info("***** Running training *****")
