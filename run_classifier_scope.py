@@ -226,7 +226,15 @@ class ScopeProcessor(DataProcessor):
 
   def get_labels(self, data_dir):
     """See base class."""
-    return self._read_tsv(os.path.join(data_dir, "class-list.tsv"))
+        """Reads a tab separated value file."""
+    with tf.gfile.Open(os.path.join(data_dir, "class-list.tsv"), "r") as f:
+      reader = csv.reader(f, delimiter="\t", quotechar=quotechar)
+      lines = []
+      for line in reader:
+        lines.append(line)
+      return lines
+
+    # return [line[0] fpr l;self._read_tsv(os.path.join(data_dir, "class-list.tsv"))
 
   def _create_examples(self, lines, set_type):
     """Creates examples for the training and dev sets."""
