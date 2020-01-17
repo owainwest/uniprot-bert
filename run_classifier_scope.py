@@ -227,7 +227,7 @@ class ScopeProcessor(DataProcessor):
   def get_labels(self, data_dir):
     """See base class."""
     with tf.gfile.Open(os.path.join(data_dir, "class-list.tsv"), "r") as f:
-      reader = csv.reader(f, delimiter="\t", quotechar=quotechar)
+      reader = csv.reader(f, delimiter="\t", quotechar=None)
       lines = []
       for line in reader:
         lines.append(line)
