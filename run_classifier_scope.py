@@ -259,6 +259,8 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
 
   print(ex_index)
   label_map = {}
+  print("label list")
+  print(label_list)
   for (i, label) in enumerate(label_list):
     print(label)
     label_map[label] = i
@@ -359,6 +361,8 @@ def file_based_convert_examples_to_features(
     if ex_index % 10000 == 0:
       tf.logging.info("Writing example %d of %d" % (ex_index, len(examples)))
 
+    print("example")
+    print(example)
     feature = convert_single_example(ex_index, example, label_list,
                                      max_seq_length, tokenizer)
 

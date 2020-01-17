@@ -168,35 +168,40 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
 
     (masked_lm_loss, masked_lm_example_loss, masked_lm_log_probs) = get_masked_lm_output(
          bert_config, model.get_sequence_output(), model.get_embedding_table(),
-         masked_lm_positions, masked_lm_ids, masked_lm_weights)
+         masked_lm_positions, masked_lm_ids, masked_lm_weights, 
+         hydrophobicities, hydrophobicity_weights, 
+         charges, charge_weights,
+         pks, pk_weights,
+         solubilities, solubility_weights,
+         k,)
 
-    if do_hydro:
-      (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = get_hydrophobicity_output(
-          bert_config, model.get_sequence_output(), #model.get_embedding_table(),
-          masked_lm_positions, hydrophobicities, hydrophobicity_weights, k, log=True)
-    else:
-      (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = (0, 0, None)
+    # if do_hydro:
+    #   (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = get_hydrophobicity_output(
+    #       bert_config, model.get_sequence_output(), #model.get_embedding_table(),
+    #       masked_lm_positions, hydrophobicities, hydrophobicity_weights, k, log=True)
+    # else:
+    #   (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = (0, 0, None)
 
-    if do_charge:
-      (charge_loss, charge_example_loss, charge_log_probs) = get_charge_output(
-          bert_config, model.get_sequence_output(), #model.get_embedding_table(),
-          masked_lm_positions, charges, charge_weights, k)
-    else:
-      (charge_loss, charge_example_loss, charge_log_probs) = (0, 0, None)
+    # if do_charge:
+    #   (charge_loss, charge_example_loss, charge_log_probs) = get_charge_output(
+    #       bert_config, model.get_sequence_output(), #model.get_embedding_table(),
+    #       masked_lm_positions, charges, charge_weights, k)
+    # else:
+    #   (charge_loss, charge_example_loss, charge_log_probs) = (0, 0, None)
 
-    if do_pks:
-      (pk_loss, pk_example_loss, pk_log_probs) = get_pk_output(
-          bert_config, model.get_sequence_output(), #model.get_embedding_table(),
-          masked_lm_positions, pks, pk_weights, k)
-    else:
-      (pk_loss, pk_example_loss, pk_log_probs) = (0, 0, None)
+    # if do_pks:
+    #   (pk_loss, pk_example_loss, pk_log_probs) = get_pk_output(
+    #       bert_config, model.get_sequence_output(), #model.get_embedding_table(),
+    #       masked_lm_positions, pks, pk_weights, k)
+    # else:
+    #   (pk_loss, pk_example_loss, pk_log_probs) = (0, 0, None)
 
-    if do_solubility:
-      (solubility_loss, solubility_example_loss, solubility_log_probs) = get_solubility_output(
-          bert_config, model.get_sequence_output(), #model.get_embedding_table(),
-          masked_lm_positions, solubilities, solubility_weights, k)
-    else:
-      (solubility_loss, solubility_example_loss, solubility_log_probs) = (0, 0, None)
+    # if do_solubility:
+    #   (solubility_loss, solubility_example_loss, solubility_log_probs) = get_solubility_output(
+    #       bert_config, model.get_sequence_output(), #model.get_embedding_table(),
+    #       masked_lm_positions, solubilities, solubility_weights, k)
+    # else:
+    #   (solubility_loss, solubility_example_loss, solubility_log_probs) = (0, 0, None)
 
     print("-"*40)
     print("masked_lm_loss: ", masked_lm_loss)
