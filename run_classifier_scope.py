@@ -230,7 +230,7 @@ class ScopeProcessor(DataProcessor):
       reader = csv.reader(f, delimiter="\t", quotechar=None)
       lines = []
       for line in reader:
-        lines.append(line)
+        lines.append(line[0])
       return lines
 
     # return [line[0] fpr l;self._read_tsv(os.path.join(data_dir, "class-list.tsv"))
