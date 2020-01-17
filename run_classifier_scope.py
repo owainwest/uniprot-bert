@@ -561,12 +561,12 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
 
       def metric_fn(per_example_loss, label_ids, logits, is_real_example):
         predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
-        float_predictions = tf.argmax(logits, axis=-1, output_type=tf.float32)
+        # float_predictions = tf.argmax(logits, axis=-1, output_type=tf.float32)
 
         accuracy = tf.metrics.accuracy(
             labels=label_ids, predictions=predictions, weights=is_real_example)
-        top_k_accuracy = tf.metrics.mean(
-            tf.nn.in_top_k(predictions=float_predictions, targets=label_ids, k=5))
+        # top_k_accuracy = tf.metrics.mean(
+            # tf.nn.in_top_k(predictions=float_predictions, targets=label_ids, k=5))
 
         loss = tf.metrics.mean(values=per_example_loss, weights=is_real_example)
         return {
