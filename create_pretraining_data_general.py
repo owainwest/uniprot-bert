@@ -205,11 +205,7 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     features["charge_weights"] = create_float_feature(charge_weights)
     features["pk_weights"] = create_float_feature(pk_weights)
 
-    # print(features)
-
     tf_example = tf.train.Example(features=tf.train.Features(feature=features))
-
-    # print(tf_example)
 
     writers[writer_index].write(tf_example.SerializeToString())
     writer_index = (writer_index + 1) % len(writers)
