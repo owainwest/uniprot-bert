@@ -132,7 +132,7 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
     masked_lm_positions = list(instance.masked_lm_positions)
     hydrophobicities = list(instance.hydrophobicities)
     masked_lm_ids = tokenizer.convert_tokens_to_ids(instance.masked_lm_labels)
-    masked_lm_weights = [1.0] * len(masked_lm_ids)
+    masked_lm_weights = [1.0] * len(mUSE_TPUasked_lm_ids)
     hydrophobicity_weights = [1.0] * len(masked_lm_ids)
 
     while len(masked_lm_positions) < max_predictions_per_seq:

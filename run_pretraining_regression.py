@@ -168,47 +168,36 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
 
     (masked_lm_loss, masked_lm_example_loss, masked_lm_log_probs) = get_masked_lm_output(
          bert_config, model.get_sequence_output(), model.get_embedding_table(),
-         masked_lm_positions, masked_lm_ids, masked_lm_weights, 
-         hydrophobicities, hydrophobicity_weights, 
-         charges, charge_weights,
-         pks, pk_weights,
-         solubilities, solubility_weights,
-         k,)
+         masked_lm_positions, masked_lm_ids, masked_lm_weights)
 
-    # if do_hydro:
-    #   (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = get_hydrophobicity_output(
-    #       bert_config, model.get_sequence_output(), #model.get_embedding_table(),
-    #       masked_lm_positions, hydrophobicities, hydrophobicity_weights, k, log=True)
-    # else:
-    #   (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = (0, 0, None)
+    if do_hydro:
+      (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = get_hydrophobicity_output(
+          bert_config, model.get_sequence_output(),
+          masked_lm_positions, hydrophobicities, hydrophobicity_weights, k, log=True)
+    else:
+      (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = (0, 0, None)
 
-    # if do_charge:
-    #   (charge_loss, charge_example_loss, charge_log_probs) = get_charge_output(
-    #       bert_config, model.get_sequence_output(), #model.get_embedding_table(),
-    #       masked_lm_positions, charges, charge_weights, k)
-    # else:
-    #   (charge_loss, charge_example_loss, charge_log_probs) = (0, 0, None)
+    if do_charge:
+      (charge_loss, charge_example_loss, charge_log_probs) = get_charge_output(
+          bert_config, model.get_sequence_output(), 
+          masked_lm_positions, charges, charge_weights, k)
+    else:
+      (charge_loss, charge_example_loss, charge_log_probs) = (0, 0, None)
 
-    # if do_pks:
-    #   (pk_loss, pk_example_loss, pk_log_probs) = get_pk_output(
-    #       bert_config, model.get_sequence_output(), #model.get_embedding_table(),
-    #       masked_lm_positions, pks, pk_weights, k)
-    # else:
-    #   (pk_loss, pk_example_loss, pk_log_probs) = (0, 0, None)
+    if do_pks:
+      (pk_loss, pk_example_loss, pk_log_probs) = get_pk_output(
+          bert_config, model.get_sequence_output(), 
+          masked_lm_positions, pks, pk_weights, k)
+    else:
+      (pk_loss, pk_example_loss, pk_log_probs) = (0, 0, None)
 
-    # if do_solubility:
-    #   (solubility_loss, solubility_example_loss, solubility_log_probs) = get_solubility_output(
-    #       bert_config, model.get_sequence_output(), #model.get_embedding_table(),
-    #       masked_lm_positions, solubilities, solubility_weights, k)
-    # else:
-    #   (solubility_loss, solubility_example_loss, solubility_log_probs) = (0, 0, None)
+    if do_solubility:
+      (solubility_loss, solubility_example_loss, solubility_log_probs) = get_solubility_output(
+          bert_config, model.get_sequence_output(),
+          masked_lm_positions, solubilities, solubility_weights, k)
+    else:
+      (solubility_loss, solubility_example_loss, solubility_log_probs) = (0, 0, None)
 
-    print("-"*40)
-    print("masked_lm_loss: ", masked_lm_loss)
-    print("hydro_loss: ", hydrophobicity_loss)
-    print("charge_loss: ", charge_loss)
-    print("pk_loss: ", pk_loss)
-    print("solubility_loss: ", solubility_loss)
 
     total_loss = masked_lm_loss + hydrophobicity_loss + charge_loss + pk_loss + solubility_loss
 
@@ -424,7 +413,6 @@ def get_hydrophobicity_output(bert_config, input_tensor, positions,
                          label_hydrophobicities, label_weights, k=3, log=False):
   """Get loss and log probs for the hydrophobicity prediction."""
   input_tensor = gather_indexes(input_tensor, positions)
-  OUTPUT_SIZE = 1
   hydrophobicity_range = 155*k + 1
 
   with tf.variable_scope("cls/hydrophobicity"):
@@ -437,27 +425,18 @@ def get_hydrophobicity_output(bert_config, input_tensor, positions,
               bert_config.initializer_range))
       input_tensor = modeling.layer_norm(input_tensor)
 
-
-# !TODO: change to a linear regression output, eg
-# linear_W = tf.Variable(tf.truncated_normal([prev_units, linear_units], …))
-# linear_b = tf.Variable(tf.zeros([linear_units]))
-
-# linear_layer = tf.matmul(prev_layer, linear_W) + linear_b
-
-
       output_weights = tf.get_variable(
         "output_weights",
-        shape=[OUTPUT_SIZE, bert_config.hidden_size],
+        shape=[1, bert_config.hidden_size],
         initializer=modeling.create_initializer(bert_config.initializer_range))
       output_bias = tf.get_variable(
           "output_bias",
-        shape=[OUTPUT_SIZE],
+        shape=[1],
         initializer=tf.zeros_initializer())
 
     logits = tf.matmul(input_tensor, output_weights, transpose_b=True)
 
     logits = tf.nn.bias_add(logits, output_bias)
-    pred = tf.nn.relu(logits)
     log_probs = tf.nn.log_softmax(logits, axis=-1)
 
 

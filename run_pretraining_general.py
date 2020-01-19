@@ -172,38 +172,32 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
 
     if do_hydro:
       (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = get_hydrophobicity_output(
-          bert_config, model.get_sequence_output(), #model.get_embedding_table(),
+          bert_config, model.get_sequence_output(),
           masked_lm_positions, hydrophobicities, hydrophobicity_weights, k, log=True)
     else:
       (hydrophobicity_loss, hydrophobicity_example_loss, hydrophobicity_log_probs) = (0, 0, None)
 
     if do_charge:
       (charge_loss, charge_example_loss, charge_log_probs) = get_charge_output(
-          bert_config, model.get_sequence_output(), #model.get_embedding_table(),
+          bert_config, model.get_sequence_output(), 
           masked_lm_positions, charges, charge_weights, k)
     else:
       (charge_loss, charge_example_loss, charge_log_probs) = (0, 0, None)
 
     if do_pks:
       (pk_loss, pk_example_loss, pk_log_probs) = get_pk_output(
-          bert_config, model.get_sequence_output(), #model.get_embedding_table(),
+          bert_config, model.get_sequence_output(), 
           masked_lm_positions, pks, pk_weights, k)
     else:
       (pk_loss, pk_example_loss, pk_log_probs) = (0, 0, None)
 
     if do_solubility:
       (solubility_loss, solubility_example_loss, solubility_log_probs) = get_solubility_output(
-          bert_config, model.get_sequence_output(), #model.get_embedding_table(),
+          bert_config, model.get_sequence_output(),
           masked_lm_positions, solubilities, solubility_weights, k)
     else:
       (solubility_loss, solubility_example_loss, solubility_log_probs) = (0, 0, None)
 
-    print("-"*40)
-    print("masked_lm_loss: ", masked_lm_loss)
-    print("hydro_loss: ", hydrophobicity_loss)
-    print("charge_loss: ", charge_loss)
-    print("pk_loss: ", pk_loss)
-    print("solubility_loss: ", solubility_loss)
 
     total_loss = masked_lm_loss + hydrophobicity_loss + charge_loss + pk_loss + solubility_loss
 
@@ -745,6 +739,7 @@ def main(_):
 
   is_per_host = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
   run_config = tf.contrib.tpu.RunConfig(
+      keep_checkpoint_max=40,
       cluster=tpu_cluster_resolver,
       master=FLAGS.master,
       model_dir=FLAGS.output_dir,
@@ -776,7 +771,7 @@ def main(_):
       train_batch_size=FLAGS.train_batch_size,
       eval_batch_size=FLAGS.eval_batch_size)
 
-  tf.contrib.estimator.add_metrics(classifier, custom_metric)
+  # tf.contrib.estimator.add_metrics(classifier, custom_metric)
 
 
 # def custom_metric(labels, predictions):
