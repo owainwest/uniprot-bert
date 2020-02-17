@@ -494,8 +494,8 @@ def get_charge(peptide, aa_features):
 
 def get_pks(peptide, aa_features):
     DEFAULT_GUESS = statistics.median(sum(feats["pks"]) for feats in aa_features.values())
-    MIN = min(feats["pks"] for feats in aa_features.values())
-    MAX = max(feats["pks"] for feats in aa_features.values())
+    MIN = min(sum(feats["pks"]) for feats in aa_features.values())
+    MAX = max(sum(feats["pks"]) for feats in aa_features.values())
     RANGE = (MAX - MIN) * len(peptide)
     NUM_BUCKETS = 3
 
