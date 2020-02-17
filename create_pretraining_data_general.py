@@ -475,7 +475,7 @@ def get_hydrophobicity(peptide, aa_features):
             res.append(aa_features[amino_acid]["hydrophobicity"])
         else:
             res.append(DEFAULT_GUESS)
-    return int(NUM_BUCKETS * (sum(res) / range))
+    return int(NUM_BUCKETS * (sum(res) / RANGE))
 
 def get_charge(peptide, aa_features):
     DEFAULT_GUESS = statistics.median(feats["charge"] for feats in aa_features.values())
@@ -490,7 +490,7 @@ def get_charge(peptide, aa_features):
             res.append(aa_features[amino_acid]["charge"])
         else:
             res.append(DEFAULT_GUESS)
-    return int(NUM_BUCKETS * (sum(res) / range))
+    return int(NUM_BUCKETS * (sum(res) / RANGE))
 
 def get_pks(peptide, aa_features):
     DEFAULT_GUESS = statistics.median(sum(feats["pks"]) for feats in aa_features.values())
@@ -505,7 +505,7 @@ def get_pks(peptide, aa_features):
             res.append(sum(aa_features[amino_acid]["pks"]))
         else:
             res.append(DEFAULT_GUESS)
-    return int(NUM_BUCKETS * (sum(res) / range))
+    return int(NUM_BUCKETS * (sum(res) / RANGE))
 
 def get_solubility(peptide, aa_features):
     DEFAULT_GUESS = statistics.median(feats["solubility"] for feats in aa_features.values())
@@ -520,7 +520,7 @@ def get_solubility(peptide, aa_features):
             res.append(aa_features[amino_acid]["solubility"])
         else:
             res.append(DEFAULT_GUESS)
-    return int(NUM_BUCKETS * (sum(res) / range))
+    return int(NUM_BUCKETS * (sum(res) / RANGE))
 
 
 def truncate_seq_pair(tokens_a, tokens_b, max_num_tokens, rng):
