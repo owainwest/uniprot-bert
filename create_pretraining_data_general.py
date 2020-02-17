@@ -78,19 +78,19 @@ flags.DEFINE_float(
     "Probability of creating sequences which are shorter than the maximum length.")
 
 flags.DEFINE_bool(
-    "do_hydro", False,
+    "do_hydro", True,
     "Whether or not to use local hydrophobicity predictions in training.")
 
 flags.DEFINE_bool(
-    "do_charge", False,
+    "do_charge", True,
     "Whether or not to use local charge predictions in training.")
 
 flags.DEFINE_bool(
-    "do_pks", False,
+    "do_pks", True,
     "Whether or not to use local predictions of pKa NH2, pKa COOH in training.")
 
 flags.DEFINE_bool(
-    "do_solubility", False,
+    "do_solubility", True,
     "Whether or not to use local predictions of solubility in training.")
 
 
