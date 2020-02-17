@@ -464,43 +464,63 @@ def create_local_predictions(tokens, masked_lm_prob,
 
 def get_hydrophobicity(peptide, aa_features):
     DEFAULT_GUESS = statistics.median(feats["hydrophobicity"] for feats in aa_features.values())
+    MIN = min(feats["hydrophobicity"] for feats in aa_features.values())
+    MAX = max(feats["hydrophobicity"] for feats in aa_features.values())
+    RANGE = (MAX - MIN) * len(peptide)
+    NUM_BUCKETS = 3
+
     res = []
     for amino_acid in peptide:
         if amino_acid in aa_features:
             res.append(aa_features[amino_acid]["hydrophobicity"])
         else:
             res.append(DEFAULT_GUESS)
-    return int(sum(res))
+    return int(NUM_BUCKETS * (sum(res) / range))
 
 def get_charge(peptide, aa_features):
     DEFAULT_GUESS = statistics.median(feats["charge"] for feats in aa_features.values())
+    MIN = min(feats["charge"] for feats in aa_features.values())
+    MAX = max(feats["charge"] for feats in aa_features.values())
+    RANGE = (MAX - MIN) * len(peptide)
+    NUM_BUCKETS = 3
+
     res = []
     for amino_acid in peptide:
         if amino_acid in aa_features:
             res.append(aa_features[amino_acid]["charge"])
         else:
             res.append(DEFAULT_GUESS)
-    return int(sum(res))
+    return int(NUM_BUCKETS * (sum(res) / range))
 
 def get_pks(peptide, aa_features):
     DEFAULT_GUESS = statistics.median(sum(feats["pks"]) for feats in aa_features.values())
+    MIN = min(feats["pks"] for feats in aa_features.values())
+    MAX = max(feats["pks"] for feats in aa_features.values())
+    RANGE = (MAX - MIN) * len(peptide)
+    NUM_BUCKETS = 3
+
     res = []
     for amino_acid in peptide:
         if amino_acid in aa_features:
             res.append(sum(aa_features[amino_acid]["pks"]))
         else:
             res.append(DEFAULT_GUESS)
-    return int(sum(res))
+    return int(NUM_BUCKETS * (sum(res) / range))
 
 def get_solubility(peptide, aa_features):
     DEFAULT_GUESS = statistics.median(feats["solubility"] for feats in aa_features.values())
+    MIN = min(feats["solubility"] for feats in aa_features.values())
+    MAX = max(feats["solubility"] for feats in aa_features.values())
+    RANGE = (MAX - MIN) * len(peptide)
+    NUM_BUCKETS = 3
+
     res = []
     for amino_acid in peptide:
         if amino_acid in aa_features:
             res.append(aa_features[amino_acid]["solubility"])
         else:
             res.append(DEFAULT_GUESS)
-    return int(sum(res))
+    return int(NUM_BUCKETS * (sum(res) / range))
 
 
 def truncate_seq_pair(tokens_a, tokens_b, max_num_tokens, rng):
